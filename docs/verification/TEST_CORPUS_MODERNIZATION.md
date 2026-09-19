@@ -70,6 +70,16 @@ references also require a closed use grammar: an inline assignment, wrapper,
 container or callback must not conceal an unproven getter invocation. Unsupported
 getter-value escapes refuse admission. This stricter admission screen does not
 change the existing scope-sensitive test consumer's alias and rebinding rules.
+Alternate attribute-lookup capabilities must satisfy the same selector and use
+proof; a bound or unbound `__getattribute__` lookup cannot bypass that boundary.
+Import-time collection evidence also requires a positive effect proof, rather
+than only the absence of a recognized skip call. Executed object writes and
+opaque calls cannot disappear when a new dependency or changed existing module
+is normalized. Definition headers and class execution are distinguished from
+dormant callable bodies. Unknown effects refuse the affected comparison; this
+is a bounded static proof, not a general Python purity analysis. It covers
+represented repository sources; it does not attest to behavior inside
+unrepresented external imports.
 Test-owned helpers and parameter/decorator data retain their baseline bindings.
 Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
@@ -103,6 +113,11 @@ Dependencies remain conservative when a caller overrides an argument; this is
 not a general Python argument binder. Evidence follows represented reached
 bindings; a compound or class binding may conservatively retain multiple
 contained definitions.
+Writes through objects referenced by reached defaults, including aliases and
+unproven call escapes, must retain their producer evidence or refuse the
+affected comparison. Capturing a mutable object is distinct from capturing a
+member value before a later write. An unchanged-input control does not prove
+that a changed producer is harmless.
 The consumer proof uses the existing local and explicitly imported fixture graph.
 Conftest and plugin discovery retain their separate existing checks.
 Module values, static members and explicit package namespaces retain their lexical

@@ -17,7 +17,7 @@ import tomllib
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from scripts.verification.test_corpus_evidence import (
     ASSERTION_EVIDENCE_SCHEMA as ASSERTION_EVIDENCE_SCHEMA,
@@ -599,10 +599,21 @@ class _PythonBindingModuleAnalysis:
     runtime_import_provenance: dict[str, _PythonRuntimeImportProvenance] | None = None
     consumer_certificate: bool = False
     definition_owners: dict[tuple[int, int], ast.AST] | None = None
-    definition_contexts: dict[tuple[int, int, bool], _PythonBindingModuleAnalysis] | None = None
-    definition_events: dict[tuple[int, int], dict[str, tuple[ast.AST, ...]]] | None = None
+    definition_contexts: (
+        dict[tuple[int, int, bool], _PythonBindingModuleAnalysis] | None
+    ) = None
+    definition_events: dict[tuple[int, int], dict[str, tuple[ast.AST, ...]]] | None = (
+        None
+    )
     runtime_callable_children: dict[tuple[int, int], tuple[ast.AST, ...]] | None = None
-    definition_scope_names: dict[tuple[int, int], tuple[frozenset[str], frozenset[str], frozenset[str]]] | None = None
+    definition_scope_names: (
+        dict[tuple[int, int], tuple[frozenset[str], frozenset[str], frozenset[str]]]
+        | None
+    ) = None
+    definition_object_effects: (
+        dict[tuple[int, int], tuple[dict[str, tuple[ast.AST, ...]], frozenset[str]]]
+        | None
+    ) = None
 
 
 @dataclass(frozen=True)
@@ -2530,12 +2541,20 @@ def _python_new_getter_selection_is_unsafe(
 
     if isinstance(node, ast.Attribute) and node.attr == "skipTest":
         return True
-    if not isinstance(node, ast.Call) or not _is_builtin_getattr_reference(
-        node.func, imported_modules, aliases
-    ):
+    if not isinstance(node, ast.Call):
         return False
+    kind = _python_new_getter_kind(node.func, imported_modules, aliases)
+    if kind is None:
+        return False
+    if kind == "opaque-lookup":
+        return True
+    argument_counts = {
+        "getattr": {2, 3},
+        "bound-getattribute": {1},
+        "object-getattribute": {2},
+    }
     if (
-        len(node.args) not in {2, 3}
+        len(node.args) not in argument_counts[kind]
         or node.keywords
         or any(isinstance(argument, ast.Starred) for argument in node.args)
     ):
@@ -2543,20 +2562,82 @@ def _python_new_getter_selection_is_unsafe(
     # Constant strings and addition are the complete selector grammar. Collect
     # at most the target's length: long constant expressions remain known-safe
     # without repeatedly materializing ever larger concatenated strings.
-    pending = [node.args[1]]
+    unsafe_selectors = {"skipTest", "__getattribute__", "__getattr__", "__dict__"}
+    selector_limit = max(map(len, unsafe_selectors))
+    pending = [node.args[0 if kind == "bound-getattribute" else 1]]
     parts: list[str] = []
     length = 0
     while pending:
         value = pending.pop()
         if isinstance(value, ast.Constant) and isinstance(value.value, str):
             length += len(value.value)
-            if length <= len("skipTest"):
+            if length <= selector_limit:
                 parts.append(value.value)
         elif isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
             pending.extend((value.right, value.left))
         else:
             return True
-    return length == len("skipTest") and "".join(parts) == "skipTest"
+    return length <= selector_limit and "".join(parts) in unsafe_selectors
+
+
+def _python_new_getter_kind(
+    node: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+    aliases: dict[str, str],
+) -> str | None:
+    """Recognize selection entry points only for the conservative proof modes."""
+
+    if isinstance(node, ast.Name) and node.id in aliases:
+        return aliases[node.id]
+    opaque_symbols = {"operator.attrgetter", "operator.methodcaller", "builtins.vars"}
+    if isinstance(node, ast.Name) and (
+        node.id == "vars"
+        or opaque_symbols.intersection(imported_modules.get(node.id, ()))
+    ):
+        return "opaque-lookup"
+    if isinstance(node, ast.Attribute):
+        if node.attr == "__dict__":
+            return "opaque-lookup"
+        namespace = node.value
+        while isinstance(namespace, ast.NamedExpr):
+            namespace = namespace.value
+        if isinstance(namespace, ast.Name):
+            candidates = imported_modules.get(namespace.id, ())
+            if (
+                node.attr in {"attrgetter", "methodcaller"} and "operator" in candidates
+            ) or (
+                node.attr == "vars"
+                and (namespace.id == "builtins" or "builtins" in candidates)
+            ):
+                return "opaque-lookup"
+    if _is_builtin_getattr_reference(node, imported_modules, {}):
+        return "getattr"
+    if not isinstance(node, ast.Attribute) or node.attr not in {
+        "__getattribute__",
+        "__getattr__",
+    }:
+        return None
+    if node.attr == "__getattr__":
+        return "bound-getattribute"
+    receiver = node.value
+    while isinstance(receiver, ast.NamedExpr):
+        receiver = receiver.value
+    builtin_object = (
+        isinstance(receiver, ast.Name)
+        and (
+            receiver.id == "object"
+            or "builtins.object" in imported_modules.get(receiver.id, ())
+        )
+    ) or (
+        isinstance(receiver, ast.Attribute)
+        and receiver.attr == "object"
+        and isinstance(receiver.value, ast.Name)
+        and (
+            receiver.value.id == "builtins"
+            or "builtins" in imported_modules.get(receiver.value.id, ())
+        )
+    )
+    return "object-getattribute" if builtin_object else "bound-getattribute"
 
 
 def _python_conservative_getattr_aliases(
@@ -2611,7 +2692,9 @@ def _python_new_getter_uses_are_unsafe(
         while isinstance(value, ast.NamedExpr):
             value = value.value
         if isinstance(value, ast.Name):
-            for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+            for target in (
+                node.targets if isinstance(node, ast.Assign) else [node.target]
+            ):
                 if isinstance(target, ast.Name):
                     namespace_edges.setdefault(value.id, set()).add(target.id)
     pending = list(namespaces)
@@ -2625,9 +2708,57 @@ def _python_new_getter_uses_are_unsafe(
         imported_modules[namespace] = tuple(dict.fromkeys(
             (*imported_modules.get(namespace, ()), "builtins")
         ))
+    operator_namespaces = {
+        name
+        for name, candidates in imported_modules.items()
+        if candidates[:1] == ("operator",)
+    }
+    pending = list(operator_namespaces)
+    while pending:
+        for alias in namespace_edges.get(pending.pop(), ()):
+            if alias not in operator_namespaces:
+                operator_namespaces.add(alias)
+                pending.append(alias)
+    for namespace in operator_namespaces:
+        imported_modules[namespace] = tuple(
+            dict.fromkeys((*imported_modules.get(namespace, ()), "operator"))
+        )
+    lookup_namespaces = namespaces | operator_namespaces
+    object_aliases = {"object"} | {
+        name
+        for name, candidates in imported_modules.items()
+        if "builtins.object" in candidates
+    }
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            continue
+        value = node.value
+        while isinstance(value, ast.NamedExpr):
+            value = value.value
+        if (
+            isinstance(value, ast.Attribute)
+            and value.attr == "object"
+            and isinstance(value.value, ast.Name)
+            and value.value.id in namespaces
+        ):
+            for target in (
+                node.targets if isinstance(node, ast.Assign) else [node.target]
+            ):
+                if isinstance(target, ast.Name):
+                    object_aliases.add(target.id)
+    pending = list(object_aliases)
+    while pending:
+        for alias in namespace_edges.get(pending.pop(), ()):
+            if alias not in object_aliases:
+                object_aliases.add(alias)
+                pending.append(alias)
+    for alias in object_aliases:
+        imported_modules[alias] = tuple(
+            dict.fromkeys((*imported_modules.get(alias, ()), "builtins.object"))
+        )
 
     def getter_reference(value: ast.AST, aliases: dict[str, str]) -> bool:
-        if _is_builtin_getattr_reference(value, imported_modules, aliases):
+        if _python_new_getter_kind(value, imported_modules, aliases) is not None:
             return True
         if isinstance(value, ast.Attribute) and value.attr == "getattr":
             namespace = value.value
@@ -2636,30 +2767,52 @@ def _python_new_getter_uses_are_unsafe(
             return isinstance(namespace, ast.Name) and namespace.id in namespaces
         return False
 
-    alias_nodes = list(nodes)
+    alias_kinds: dict[str, set[str]] = {}
+    alias_edges: dict[str, set[str]] = {}
     for node in nodes:
         if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
             continue
         value = node.value
         while isinstance(value, ast.NamedExpr):
             value = value.value
-        if value is not None:
-            alias_nodes.append(
-                ast.Assign(
-                    targets=node.targets
-                    if isinstance(node, ast.Assign)
-                    else [node.target],
-                    value=(ast.Name(id="getattr", ctx=ast.Load())
-                           if getter_reference(value, {}) else value),
-                )
-            )
-    aliases = _python_conservative_getattr_aliases(tuple(alias_nodes), imported_modules)
+        for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+            if not isinstance(target, ast.Name):
+                continue
+            kind = _python_new_getter_kind(value, imported_modules, {})
+            if kind is None and getter_reference(value, {}):
+                kind = "getattr"
+            if kind is not None:
+                alias_kinds.setdefault(target.id, set()).add(kind)
+            if isinstance(value, ast.Name):
+                alias_edges.setdefault(value.id, set()).add(target.id)
+    pending = list(alias_kinds)
+    while pending:
+        source = pending.pop()
+        for target in alias_edges.get(source, ()):
+            before = set(alias_kinds.get(target, ()))
+            after = before | alias_kinds[source]
+            if after != before:
+                alias_kinds[target] = after
+                pending.append(target)
+    aliases = {
+        name: next(iter(kinds))
+        for name, kinds in alias_kinds.items()
+        if len(kinds) == 1
+    }
     for reference in nodes:
         if isinstance(reference, (ast.Name, ast.Attribute)) and not isinstance(
             reference.ctx, ast.Load
         ):
             continue
-        namespace_reference = isinstance(reference, ast.Name) and reference.id in namespaces
+        namespace_reference = (
+            isinstance(reference, ast.Name) and reference.id in lookup_namespaces
+        )
+        mixed_alias = (
+            isinstance(reference, ast.Name)
+            and len(alias_kinds.get(reference.id, ())) > 1
+        )
+        if mixed_alias:
+            return True
         if not namespace_reference and not getter_reference(reference, aliases):
             continue
         value = reference
@@ -2667,16 +2820,35 @@ def _python_new_getter_uses_are_unsafe(
         while isinstance(parent, ast.NamedExpr) and parent.value is value:
             value, parent = parent, parents.get(id(parent))
         if namespace_reference:
-            if isinstance(parent, ast.Attribute) and parent.value is value and not parent.attr.startswith("_"):
+            if (
+                isinstance(parent, ast.Attribute)
+                and parent.value is value
+                and not parent.attr.startswith("_")
+            ):
                 continue
-            if isinstance(parent, (ast.Assign, ast.AnnAssign)) and parent.value is value:
-                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
-                if all(isinstance(target, ast.Name) and target.id in namespaces for target in targets):
+            if (
+                isinstance(parent, (ast.Assign, ast.AnnAssign))
+                and parent.value is value
+            ):
+                targets = (
+                    parent.targets
+                    if isinstance(parent, ast.Assign)
+                    else [parent.target]
+                )
+                if all(
+                    isinstance(target, ast.Name) and target.id in lookup_namespaces
+                    for target in targets
+                ):
                     continue
             return True
         if isinstance(parent, ast.Call) and parent.func is value:
+            kind = _python_new_getter_kind(reference, imported_modules, aliases)
             selected = ast.Call(
-                func=ast.Name(id="getattr", ctx=ast.Load()), args=parent.args, keywords=parent.keywords
+                func=reference
+                if kind is not None
+                else ast.Name(id="getattr", ctx=ast.Load()),
+                args=parent.args,
+                keywords=parent.keywords,
             )
             if _python_new_getter_selection_is_unsafe(
                 selected, imported_modules, aliases
@@ -4036,6 +4208,8 @@ def _python_module_dependency_identity_impl(
 class _PythonCollectionNodeFacts:
     neutral: bool
     dependencies: tuple[tuple[str, str], ...]
+    effect_dependencies: tuple[tuple[str, str], ...] | None = None
+    construction_inert: bool = False
 
 
 def _python_collection_node_edges(
@@ -4083,12 +4257,21 @@ def _python_collection_node_edges(
             *dynamic,
         )
     )
+    effect_dependencies = dict(dependencies)
     for alternatives in candidates:
+        selected = False
         for candidate in alternatives:
             child_source = resolver(candidate)
             if child_source is not None:
-                dependencies[candidate] = child_source
-                break
+                effect_dependencies[candidate] = child_source
+                if not selected:
+                    dependencies[candidate] = child_source
+                    selected = True
+    effect_edges = getattr(resolver, "_uaa_collection_effect_edges", None)
+    if effect_edges is None:
+        effect_edges = {}
+        setattr(resolver, "_uaa_collection_effect_edges", effect_edges)
+    effect_edges[(module, source)] = tuple(effect_dependencies.items())
     return tuple(dependencies.items())
 
 
@@ -4113,7 +4296,12 @@ def _python_collection_node_facts(
     if _has_module_level_collection_abort(tree, imported_modules):
         return _PythonCollectionNodeFacts(False, ())
     edges = _python_collection_node_edges(module, source, resolver)
-    return _PythonCollectionNodeFacts(edges is not None, edges or ())
+    return _PythonCollectionNodeFacts(
+        edges is not None,
+        edges or (),
+        getattr(resolver, "_uaa_collection_effect_edges", {}).get((module, source)),
+        edges is not None and _python_collection_construction_is_inert(tree),
+    )
 
 
 def _python_collection_graph_neighbors(
@@ -4148,8 +4336,16 @@ class _PythonCollectionGraph:
 class _PythonCollectionGraphBuilder:
     """An invocation-local construction cache; published snapshots are immutable."""
 
-    def __init__(self, resolver: Callable[[str], str | None]) -> None:
+    def __init__(
+        self,
+        resolver: Callable[[str], str | None],
+        node_facts: Callable[
+            [str, str, Callable[[str], str | None]], _PythonCollectionNodeFacts
+        ]
+        | None = None,
+    ) -> None:
         self.resolver = resolver
+        self.node_facts = node_facts
         self.sources: dict[str, str] = {}
         self.facts: dict[str, _PythonCollectionNodeFacts] = {}
         self.edges: dict[str, tuple[str, ...]] = {}
@@ -4206,7 +4402,7 @@ class _PythonCollectionGraphBuilder:
             if len(visited) > MAX_PYTHON_DEPENDENCY_MODULES:
                 return
             if current not in self.facts:
-                facts = _python_collection_node_facts(
+                facts = (self.node_facts or _python_collection_node_facts)(
                     current, self.sources[current], self.resolver
                 )
                 self.facts[current] = facts
@@ -4292,6 +4488,314 @@ def _python_collection_graph_builder(
         builder = _PythonCollectionGraphBuilder(resolver)
         setattr(resolver, "_uaa_collection_graph_builder", builder)
     return builder
+
+
+def _python_collection_construction_is_inert(tree: ast.Module) -> bool:
+    """A closed construction grammar, not an arbitrary import-purity claim.
+
+    Static imports remain the represented import boundary. Their repository
+    sources and package initializers are checked separately by the graph.
+    Dormant callable bodies are not executed here; headers and class bodies are.
+    """
+
+    future_annotations = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
+
+    def construction(
+        node: ast.AST, values: dict[str, tuple | None]
+    ) -> tuple[bool, tuple | None]:
+        if isinstance(node, ast.Constant):
+            return True, ("scalar", node.value)
+        if isinstance(node, ast.Name):
+            return True, values.get(node.id)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            # Only source-owned, base-less classes without custom allocation
+            # hooks have a closed zero-argument construction path. An imported
+            # or merely similarly named constructor is never assumed inert.
+            return (
+                not node.args
+                and not node.keywords
+                and values.get(node.func.id) == ("plain-class",),
+                None,
+            )
+        if isinstance(node, ast.Lambda):
+            return all(
+                construction(value, values)[0]
+                for value in (
+                    *node.args.defaults,
+                    *(value for value in node.args.kw_defaults if value is not None),
+                )
+            ), None
+        if isinstance(node, (ast.Tuple, ast.List)):
+            items = tuple(construction(value, values) for value in node.elts)
+            return all(inert for inert, _shape in items), (
+                "sequence",
+                tuple(shape for _inert, shape in items),
+            )
+        if isinstance(node, ast.Set):
+            return all(isinstance(value, ast.Constant) for value in node.elts), None
+        if isinstance(node, ast.Dict):
+            return all(isinstance(key, ast.Constant) for key in node.keys) and all(
+                construction(value, values)[0] for value in node.values
+            ), None
+        if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
+            return isinstance(node.operand.value, (int, float, complex, bool)), None
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+            inert, shape = construction(node.value, values)
+            if (
+                inert
+                and shape is not None
+                and shape[0] == "sequence"
+                and type(node.slice.value) is int
+            ):
+                index = node.slice.value
+                items = shape[1]
+                if -len(items) <= index < len(items):
+                    return True, items[index]
+        return False, None
+
+    def bind(
+        target: ast.AST, shape: tuple | None, values: dict[str, tuple | None]
+    ) -> bool:
+        if isinstance(target, ast.Name):
+            values[target.id] = shape
+            return True
+        if (
+            isinstance(target, (ast.Tuple, ast.List))
+            and shape is not None
+            and shape[0] == "sequence"
+        ):
+            items = shape[1]
+            return len(items) == len(target.elts) and all(
+                bind(child, item, values)
+                for child, item in zip(target.elts, items, strict=True)
+            )
+        return False
+
+    def body(
+        statements: Iterable[ast.stmt], inherited: dict[str, tuple | None]
+    ) -> bool:
+        # Shapes are captured at each assignment. An alias never resolves via a
+        # later rebind, and every later owning write invalidates old shape facts.
+        values = dict(inherited)
+        for node in statements:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                if isinstance(node, ast.ImportFrom) and any(
+                    alias.name == "*" for alias in node.names
+                ):
+                    values = dict.fromkeys((*values, "*"))
+                else:
+                    for name in _execution_binding_names(node):
+                        values[name] = None
+                continue
+            if isinstance(node, ast.Pass):
+                continue
+            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+                continue
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = (
+                    node.targets if isinstance(node, ast.Assign) else (node.target,)
+                )
+                if (
+                    isinstance(node, ast.AnnAssign)
+                    and not future_annotations
+                    and not construction(node.annotation, values)[0]
+                ):
+                    return False
+                if node.value is not None:
+                    inert, shape = construction(node.value, values)
+                    if not inert or not all(
+                        bind(target, shape, values) for target in targets
+                    ):
+                        return False
+                elif any(not isinstance(target, ast.Name) for target in targets):
+                    return False
+                continue
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.decorator_list or getattr(node, "type_params", ()):
+                    return False
+                headers = (
+                    *node.args.defaults,
+                    *(value for value in node.args.kw_defaults if value is not None),
+                )
+                if not future_annotations:
+                    headers = (
+                        *headers,
+                        *(
+                            argument.annotation
+                            for argument in (
+                                *node.args.posonlyargs,
+                                *node.args.args,
+                                *node.args.kwonlyargs,
+                                *((node.args.vararg,) if node.args.vararg else ()),
+                                *((node.args.kwarg,) if node.args.kwarg else ()),
+                            )
+                            if argument.annotation is not None
+                        ),
+                        *((node.returns,) if node.returns is not None else ()),
+                    )
+                if not all(construction(value, values)[0] for value in headers):
+                    return False
+                values[node.name] = None
+                continue
+            if isinstance(node, ast.ClassDef):
+                if (
+                    node.decorator_list
+                    or node.bases
+                    or node.keywords
+                    or getattr(node, "type_params", ())
+                    or not body(node.body, values)
+                ):
+                    return False
+                values[node.name] = (
+                    ("plain-class",)
+                    if not any(
+                        name.startswith("__") and name.endswith("__")
+                        for part in _scope_execution_nodes(node.body)
+                        for name in _execution_binding_names(part)
+                    )
+                    else None
+                )
+                continue
+            if isinstance(node, ast.If):
+                if (
+                    not isinstance(node.test, ast.Constant)
+                    or not body(node.body, values)
+                    or not body(node.orelse, values)
+                ):
+                    return False
+                values = dict.fromkeys(
+                    values.keys() | {
+                        name for part in _scope_execution_nodes([node])
+                        for name in _execution_binding_names(part)
+                    }
+                )
+                continue
+            if isinstance(node, ast.Try):
+                # A successful try can replace values read by else/finally;
+                # handlers also bind and delete their exception target. Keep
+                # unknown name ownership, but never inherit a stale shape into
+                # any clause. Each clause must establish its own shape facts.
+                unknown = dict.fromkeys(
+                    values.keys() | {
+                        name for part in _scope_execution_nodes([node])
+                        for name in _execution_binding_names(part)
+                    }
+                )
+                if not all(
+                    isinstance(handler.type, ast.Name)
+                    and handler.type.id in {"ImportError", "ModuleNotFoundError"}
+                    and handler.type.id not in unknown
+                    and "*" not in unknown
+                    and body(handler.body, unknown)
+                    for handler in node.handlers
+                ) or not all(body(parts, unknown) for parts in (node.body, node.orelse, node.finalbody)):
+                    return False
+                values = unknown
+                continue
+            return False
+        return True
+
+    return body(tree.body, {})
+
+
+class _PythonCollectionEffectProof:
+    """Shared paired facts; two closed graph verdicts avoid suffix source copies."""
+
+    def __init__(
+        self, base: Callable[[str], str | None], current: Callable[[str], str | None]
+    ) -> None:
+        self.base = base
+        self.current = current
+        self.facts: dict[str, tuple[bool, bool, tuple[tuple[str, str], ...]]] = {}
+        self.unchanged = _PythonCollectionGraphBuilder(
+            self.resolve, self.unchanged_facts
+        )
+        self.inert = _PythonCollectionGraphBuilder(self.resolve, self.inert_facts)
+
+    def resolve(self, module: str) -> str | None:
+        current, base = self.current(module), self.base(module)
+        return current if current is not None else base
+
+    def capture_facts(
+        self, module: str
+    ) -> tuple[bool, bool, tuple[tuple[str, str], ...]]:
+        if module in self.facts:
+            return self.facts[module]
+        base, current = self.base(module), self.current(module)
+        dependencies: dict[str, str] = {}
+        inert = True
+        complete = True
+        for source, resolver in ((base, self.base), (current, self.current)):
+            if source is None:
+                continue
+            owner = _python_collection_graph_builder(resolver)
+            if module not in owner.facts:
+                owner.capture(module, source)
+            facts = owner.facts[module]
+            inert = facts.construction_inert and inert
+            edges = facts.effect_dependencies
+            if edges is None:
+                complete = False
+            else:
+                for child, _source in edges:
+                    selected = self.resolve(child)
+                    if selected is not None:
+                        dependencies[child] = selected
+        result = (
+            complete and base == current,
+            complete and inert,
+            tuple(dependencies.items()),
+        )
+        self.facts[module] = result
+        return result
+
+    def unchanged_facts(
+        self, module: str, _source: str, _resolver: Callable[[str], str | None]
+    ) -> _PythonCollectionNodeFacts:
+        unchanged, _inert, edges = self.capture_facts(module)
+        return _PythonCollectionNodeFacts(unchanged, edges)
+
+    def inert_facts(
+        self, module: str, _source: str, _resolver: Callable[[str], str | None]
+    ) -> _PythonCollectionNodeFacts:
+        _unchanged, inert, edges = self.capture_facts(module)
+        return _PythonCollectionNodeFacts(inert, edges)
+
+    def permits(self, module: str) -> bool:
+        source = self.resolve(module)
+        if source is None:
+            return False
+        for graph in (self.unchanged, self.inert):
+            graph.capture(module, source)
+            if module not in graph.collection_neutral:
+                continue
+            key = (module, MAX_PYTHON_DEPENDENCY_MODULES)
+            if key not in graph.budget_verdicts:
+                graph.budget_verdicts[key] = graph.component_size(
+                    module
+                ) <= MAX_PYTHON_DEPENDENCY_MODULES or _python_exact_closure_budget(
+                    graph, module, MAX_PYTHON_DEPENDENCY_MODULES
+                )
+            if graph.budget_verdicts[key]:
+                return True
+        return False
+
+
+def _python_collection_effect_proof(
+    base: Callable[[str], str | None], current: Callable[[str], str | None]
+) -> _PythonCollectionEffectProof:
+    proofs = getattr(current, "_uaa_collection_effect_proofs", None)
+    if proofs is None:
+        proofs = {}
+        setattr(current, "_uaa_collection_effect_proofs", proofs)
+    if base not in proofs:
+        proofs[base] = _PythonCollectionEffectProof(base, current)
+    return proofs[base]
 
 
 def _python_exact_closure_budget(
@@ -4520,7 +5024,8 @@ def _python_admitted_runtime_sources(
         graph.reverse_edges, new_members.intersection(execution_bad)
     )
     accepted_roots = {
-        module for module in base_roots
+        module
+        for module in base_roots
         if module not in rejected_roots
         and module in graph.neutral
         and _python_closure_budget_within_limit(
@@ -4529,6 +5034,9 @@ def _python_admitted_runtime_sources(
             MAX_PYTHON_DEPENDENCY_MODULES,
             verdicts=current.budget_verdicts,
         )
+        and _python_collection_effect_proof(
+            base_resolver, current_proof_resolver
+        ).permits(module)
     }
     admitted: dict[str, str] = {}
     visited: set[str] = set()
@@ -4852,11 +5360,19 @@ def _python_binding_module_analysis_impl(
         module_bindings = dict(module_bindings)
         for name, definitions in _python_runtime_module_definitions(tree).items():
             existing = module_bindings.get(name, ())
-            module_bindings[name] = (*existing, *(binding for binding in definitions if binding not in existing))
-    import_nodes = tuple(
-        node for node in _module_execution_nodes(tree)
-        if isinstance(node, (ast.Import, ast.ImportFrom))
-    ) if runtime_consumer else ()
+            module_bindings[name] = (
+                *existing,
+                *(binding for binding in definitions if binding not in existing),
+            )
+    import_nodes = (
+        tuple(
+            node
+            for node in _module_execution_nodes(tree)
+            if isinstance(node, (ast.Import, ast.ImportFrom))
+        )
+        if runtime_consumer
+        else ()
+    )
     imported_modules = _python_import_modules(
         ast.Module(body=list(import_nodes), type_ignores=[]) if runtime_consumer else tree,
         relative_package=relative_package,
@@ -4920,7 +5436,9 @@ def _python_binding_module_analysis_impl(
             if name not in rebound_import_names
         }
         direct_module_aliases.difference_update(rebound_import_names)
-    fixture_bindings = _python_local_fixture_bindings(tree) if runtime_consumer else None
+    fixture_bindings = (
+        _python_local_fixture_bindings(tree) if runtime_consumer else None
+    )
     imported_fixture_bindings: dict[str, tuple[str, ...]] = {}
     if fixture_bindings and import_source_resolver is not None:
         for local_name, candidates in imported_modules.items():
@@ -4931,9 +5449,14 @@ def _python_binding_module_analysis_impl(
                 binding = _binding_name_for_resolved_import(candidates, candidate, local_name)
                 fixture_name = _python_fixture_binding_exports(imported_source).get(binding)
                 if fixture_name is not None:
-                    imported_fixture_bindings[fixture_name] = tuple(dict.fromkeys(
-                        (*imported_fixture_bindings.get(fixture_name, ()), local_name)
-                    ))
+                    imported_fixture_bindings[fixture_name] = tuple(
+                        dict.fromkeys(
+                            (
+                                *imported_fixture_bindings.get(fixture_name, ()),
+                                local_name,
+                            )
+                        )
+                    )
                 break
     definition_owners: dict[tuple[int, int], ast.AST] = {}
     if runtime_consumer:
@@ -4961,19 +5484,160 @@ def _python_binding_module_analysis_impl(
         node_analyses={},
         runtime_consumer=runtime_consumer,
         fixture_bindings=fixture_bindings,
-        imported_fixture_bindings=imported_fixture_bindings if runtime_consumer else None,
-        runtime_import_provenance=runtime_import_provenance if runtime_consumer else None,
-        consumer_certificate=getattr(import_source_resolver, "_uaa_consumer_certificate", None) is not None,
+        imported_fixture_bindings=imported_fixture_bindings
+        if runtime_consumer
+        else None,
+        runtime_import_provenance=runtime_import_provenance
+        if runtime_consumer
+        else None,
+        consumer_certificate=getattr(
+            import_source_resolver, "_uaa_consumer_certificate", None
+        )
+        is not None,
         definition_owners=definition_owners,
         definition_contexts={},
         definition_events={},
         runtime_callable_children={},
         definition_scope_names={},
+        definition_object_effects={},
     )
     if analysis_cache is not None:
         analysis_cache[cache_key] = analysis
     return analysis
 
+
+
+def _python_carried_object_roots(node: ast.AST, *, opaque: bool = False) -> set[str]:
+    """Retain finite object identities without evaluating selected values."""
+
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, ast.NamedExpr):
+        return _python_carried_object_roots(node.value, opaque=opaque)
+    if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return set().union(
+            *(_python_carried_object_roots(item, opaque=opaque) for item in node.elts)
+        )
+    if isinstance(node, ast.Dict):
+        return set().union(
+            *(
+                _python_carried_object_roots(item, opaque=opaque)
+                for item in (*node.keys, *node.values)
+                if item is not None
+            )
+        )
+    if opaque:
+        return {
+            part.id
+            for part in ast.walk(node)
+            if isinstance(part, ast.Name) and isinstance(part.ctx, ast.Load)
+        }
+    return set()
+
+
+def _python_runtime_object_effects(
+    analysis: _PythonBindingModuleAnalysis,
+    scope: ast.AST,
+) -> tuple[dict[str, tuple[ast.AST, ...]], frozenset[str]]:
+    """Index possible writes/escapes through finite owner-local name aliases."""
+
+    key = (getattr(scope, "lineno", -1), getattr(scope, "col_offset", -1))
+    cache = analysis.definition_object_effects
+    if cache is not None and key in cache:
+        return cache[key]
+    body = [ast.Expr(value=scope.body)] if isinstance(scope, ast.Lambda) else scope.body
+    parts = _module_collection_execution_nodes(ast.Module(body=body, type_ignores=[]))
+    aliases: dict[str, set[str]] = {}
+    effects: dict[str, list[ast.AST]] = {}
+    mutable: set[str] = set()
+    for part in parts:
+        if isinstance(part, ast.ClassDef):
+            mutable.add(part.name)
+        targets = (
+            part.targets
+            if isinstance(part, (ast.Assign, ast.Delete))
+            else (
+                (part.target,)
+                if isinstance(part, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr))
+                else ()
+            )
+        )
+        value = getattr(part, "value", None)
+        for target in targets:
+            if isinstance(target, ast.Name) and isinstance(
+                value,
+                (
+                    ast.List,
+                    ast.Tuple,
+                    ast.Dict,
+                    ast.Set,
+                    ast.Call,
+                    ast.Attribute,
+                    ast.Subscript,
+                ),
+            ):
+                mutable.add(target.id)
+            if isinstance(target, (ast.Attribute, ast.Subscript)) or (
+                isinstance(part, ast.AugAssign) and isinstance(target, ast.Name)
+            ):
+                root = _root_name(target)
+                if root is not None:
+                    effects.setdefault(root, []).append(part)
+            if isinstance(target, ast.Name) and value is not None:
+                carried_roots = _python_carried_object_roots(value)
+                selected = value
+                while isinstance(selected, ast.NamedExpr):
+                    selected = selected.value
+                if isinstance(selected, (ast.Attribute, ast.Subscript)):
+                    selected_root = _root_name(selected)
+                    if selected_root is not None:
+                        carried_roots.add(selected_root)
+                for carried in carried_roots:
+                    aliases.setdefault(target.id, set()).add(carried)
+                    aliases.setdefault(carried, set()).add(target.id)
+        if isinstance(part, ast.Call):
+            roots = set().union(
+                *(
+                    _python_carried_object_roots(argument, opaque=True)
+                    for argument in (
+                        *part.args,
+                        *(keyword.value for keyword in part.keywords),
+                        *(
+                            (part.func.value,)
+                            if isinstance(part.func, ast.Attribute)
+                            else ()
+                        ),
+                    )
+                )
+            )
+            for root in roots:
+                effects.setdefault(root, []).append(part)
+    result: dict[str, tuple[ast.AST, ...]] = {}
+    visited: set[str] = set()
+    for name in sorted(effects.keys() | aliases.keys()):
+        if name in visited:
+            continue
+        component = {name}
+        pending = [name]
+        while pending:
+            for alias in aliases.get(pending.pop(), ()):
+                if alias not in component:
+                    component.add(alias)
+                    pending.append(alias)
+        visited.update(component)
+        if component.intersection(mutable):
+            mutable.update(component)
+        writes = tuple(
+            {
+                id(part): part
+                for member in component
+                for part in effects.get(member, ())
+            }.values()
+        )
+        result.update(dict.fromkeys(component, writes))
+    if cache is not None:
+        cache[key] = result, frozenset(mutable)
+    return result, frozenset(mutable)
 
 
 def _python_runtime_definition_context(
@@ -4996,7 +5660,12 @@ def _python_runtime_definition_context(
         return cache[cache_key]
     owners = analysis.definition_owners or {}
     owner = owners.get(position, analysis.tree)
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)) and not callable_body:
+    if (
+        isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        )
+        and not callable_body
+    ):
         expressions = _definition_time_nodes(node)
     else:
         expressions = (node,)
@@ -5004,6 +5673,69 @@ def _python_runtime_definition_context(
         child.id for expression in expressions for child in ast.walk(expression)
         if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
     }
+    # A direct default captures an object reference. A member/subscript value
+    # is selected when the definition runs; later replacement of that member
+    # does not replace the already captured value.
+    captured_objects = (
+        set().union(
+            *(_python_carried_object_roots(expression) for expression in expressions)
+        )
+        if not callable_body
+        else set()
+    )
+    object_accesses = {
+        root
+        for expression in expressions
+        for child in ast.walk(expression)
+        if isinstance(child, (ast.Attribute, ast.Subscript))
+        and (root := _root_name(child)) is not None
+    }
+    retained_expressions = list(expressions)
+    if (
+        not callable_body
+        and owner is analysis.tree
+        and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in (analysis.fixture_bindings or {}).values()
+    ):
+        # The positively inventoried fixture factory is consumed at decoration.
+        # Its settings and every other header value retain their usual lifetime.
+        # Require exact imported-member provenance, not a rooted attribute match.
+        for decorator in node.decorator_list:
+            factory = decorator.func if isinstance(decorator, ast.Call) else decorator
+            imported = analysis.imported_modules.get(_root_name(factory) or "", ())
+            if not (
+                isinstance(factory, ast.Name)
+                and imported == ("pytest.fixture", "pytest")
+                or isinstance(factory, ast.Attribute)
+                and isinstance(factory.value, ast.Name)
+                and factory.attr == "fixture"
+                and imported == ("pytest",)
+            ):
+                continue
+            retained_expressions.remove(decorator)
+            if isinstance(decorator, ast.Call):
+                retained_expressions.extend(decorator.args)
+                retained_expressions.extend(keyword.value for keyword in decorator.keywords)
+    retained_objects = set().union(
+        *(_python_carried_object_roots(expression) for expression in retained_expressions)
+    )
+    retained_accesses = {
+        root
+        for expression in retained_expressions
+        for child in ast.walk(expression)
+        if isinstance(child, (ast.Attribute, ast.Subscript))
+        and (root := _root_name(child)) is not None
+    }
+    own_header_calls = (
+        {
+            (part.lineno, part.col_offset)
+            for expression in expressions
+            for part in ast.walk(expression)
+            if isinstance(part, ast.Call)
+        }
+        if not callable_body
+        else set()
+    )
     callable_globals: set[str] = set()
     if callable_body and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
         own_nodes = _scope_execution_nodes([node.body] if isinstance(node, ast.Lambda) else node.body)
@@ -5026,6 +5758,24 @@ def _python_runtime_definition_context(
     module_bindings: dict[str, tuple[_ModuleBinding, ...]] = {}
     provenance: dict[str, _PythonRuntimeImportProvenance] = {}
 
+    def mutates_selected_value(part: ast.AST, name: str) -> bool:
+        # Replacing owner.member does not replace a previously selected value.
+        # Calls, in-place updates, writes deeper through that member, and writes
+        # through a possible selected-value alias can mutate the captured value.
+        if isinstance(part, (ast.Call, ast.AugAssign)):
+            return True
+        targets = part.targets if isinstance(part, (ast.Assign, ast.Delete)) else (
+            (part.target,) if isinstance(part, (ast.AnnAssign, ast.NamedExpr)) else ()
+        )
+        for target in targets:
+            depth = 0
+            while isinstance(target, (ast.Attribute, ast.Subscript)):
+                depth += 1
+                target = target.value
+            if depth > 1 or (isinstance(target, ast.Name) and target.id != name):
+                return True
+        return False
+
     def scope_events(scope: ast.AST) -> dict[str, tuple[ast.AST, ...]]:
         key = (getattr(scope, "lineno", -1), getattr(scope, "col_offset", -1))
         events_cache = analysis.definition_events
@@ -5037,10 +5787,15 @@ def _python_runtime_definition_context(
             for name in _execution_binding_names(part):
                 grouped.setdefault(name, []).append(part)
         arguments = (
-            (*scope.args.posonlyargs, *scope.args.args, *scope.args.kwonlyargs,
-             *((scope.args.vararg,) if scope.args.vararg is not None else ()),
-             *((scope.args.kwarg,) if scope.args.kwarg is not None else ()))
-            if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) else ()
+            (
+                *scope.args.posonlyargs,
+                *scope.args.args,
+                *scope.args.kwonlyargs,
+                *((scope.args.vararg,) if scope.args.vararg is not None else ()),
+                *((scope.args.kwarg,) if scope.args.kwarg is not None else ()),
+            )
+            if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+            else ()
         )
         if analysis.definition_scope_names is not None:
             analysis.definition_scope_names[key] = (
@@ -5061,6 +5816,42 @@ def _python_runtime_definition_context(
         before = None if callable_body else position
         while True:
             owned_events = scope_events(scope).get(name, ())
+            scope_key = (getattr(scope, "lineno", -1), getattr(scope, "col_offset", -1))
+            arguments, globals_, nonlocals = (analysis.definition_scope_names or {}).get(
+                scope_key, (frozenset(), frozenset(), frozenset())
+            )
+            object_effects, mutable_names = _python_runtime_object_effects(
+                analysis, scope
+            )
+            effects = object_effects.get(name, ())
+            if (
+                name in arguments - globals_ - nonlocals
+                and not owned_events
+                and all(isinstance(part, ast.Call) for part in effects)
+            ):
+                break
+            if any(
+                (
+                    not isinstance(part, ast.Call)
+                    or name in object_accesses
+                    or name in mutable_names
+                    or name in captured_objects
+                )
+                and (
+                    name in retained_objects
+                    or before is None
+                    or (part.lineno, part.col_offset) < before
+                    or (name in retained_accesses and mutates_selected_value(part, name))
+                )
+                and (
+                    not isinstance(part, ast.Call)
+                    or (part.lineno, part.col_offset) not in own_header_calls
+                )
+                for part in effects
+            ):
+                raise TestCorpusGuardError(
+                    "definition-time object mutation cannot be inventoried safely"
+                )
             events = tuple(
                 part for part in owned_events
                 if before is None or (part.lineno, part.col_offset) < before
@@ -5108,7 +5899,11 @@ def _python_runtime_definition_context(
                     "definition-time runtime binding cannot be inventoried safely"
                 )
             crossed_function = isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
-            scope = analysis.tree if name in globals_ else owners.get((scope.lineno, scope.col_offset), analysis.tree)
+            scope = (
+                analysis.tree
+                if name in globals_
+                else owners.get((scope.lineno, scope.col_offset), analysis.tree)
+            )
             if crossed_function:
                 while isinstance(scope, ast.ClassDef):
                     scope = owners.get((scope.lineno, scope.col_offset), analysis.tree)
@@ -15232,18 +16027,22 @@ def removed_declarations(
                 base_module_source,
                 base_import_source_resolver,
             )
-            current_collection_neutral = (
-                _python_import_closure_is_collection_neutral(
-                    module,
-                    current_module_source,
-                    current_neutrality_source_resolver,
-                )
+            current_collection_neutral = _python_import_closure_is_collection_neutral(
+                module,
+                current_module_source,
+                current_neutrality_source_resolver,
             )
             if not current_collection_neutral:
                 raise TestCorpusGuardError(
                     "current application runtime import closure can abort collection"
                 )
             if base_collection_neutral:
+                if not _python_collection_effect_proof(
+                    base_import_source_resolver, current_neutrality_source_resolver
+                ).permits(module):
+                    raise TestCorpusGuardError(
+                        "application runtime collection effects cannot be inventoried safely"
+                    )
                 # Application implementation imports are execution subjects,
                 # not test inventory. Reuse the worktree source only after
                 # proving both revision-appropriate transitive import closures
@@ -15388,10 +16187,22 @@ def removed_declarations(
         current_consumer_facts: dict[str, str] = {}
         if path.endswith(".py") and current_text is not None:
             for text, resolver, runtime_resolver, certificate, facts, expected in (
-                (prior, base_import_source_resolver, base_runtime_import_source_resolver,
-                 base_consumer_certificate, prior_consumer_facts, prior_declarations),
-                (current_text, worktree_import_source_resolver, None,
-                 current_consumer_certificate, current_consumer_facts, current_declarations),
+                (
+                    prior,
+                    base_import_source_resolver,
+                    base_runtime_import_source_resolver,
+                    base_consumer_certificate,
+                    prior_consumer_facts,
+                    prior_declarations,
+                ),
+                (
+                    current_text,
+                    worktree_import_source_resolver,
+                    None,
+                    current_consumer_certificate,
+                    current_consumer_facts,
+                    current_declarations,
+                ),
             ):
                 represented = tuple(declaration for declaration, _source in _python_inventory_entries(
                     path, text, resolver, runtime_import_source_resolver=runtime_resolver,
@@ -15407,10 +16218,7 @@ def removed_declarations(
                 if base_consumer_certificate.requires_proof(key)
                 or current_consumer_certificate.requires_proof(key)
             )
-        if (
-            current_text is not None
-            and python310_dependency_identity_migration_active
-        ):
+        if current_text is not None and python310_dependency_identity_migration_active:
             path_removed.difference_update(
                 prior_ref
                 for prior_ref in tuple(path_removed)
@@ -15507,7 +16315,12 @@ def removed_declarations(
             current_proofs: dict[str, str] = {}
             keys = frozenset(required_consumer_keys)
             for text, resolver, runtime_resolver, proofs in (
-                (prior, base_import_source_resolver, base_runtime_import_source_resolver, prior_proofs),
+                (
+                    prior,
+                    base_import_source_resolver,
+                    base_runtime_import_source_resolver,
+                    prior_proofs,
+                ),
                 (current_text, worktree_import_source_resolver, None, current_proofs),
             ):
                 _python_inventory_entries(
