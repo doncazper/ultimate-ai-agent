@@ -1876,7 +1876,8 @@ def test_caller_owned_abort_retains_revision_specific_application_identity(
     current_subject = "from ultimate_ai_agent.new_child import runtime_value\n"
     additions = {CHILD_PATH: changed}
     if topology == "existing-app":
-        current_subject, additions = changed, {}
+        current_subject = changed
+        additions = {}
     elif topology == "grandchild":
         additions = {
             CHILD_PATH: "from ultimate_ai_agent.new_grandchild import runtime_value\n",
