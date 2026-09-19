@@ -2212,3 +2212,526 @@ def test_passed_callback_body_preserves_abort_sensitive_producer_identity(
         assert removed[0].startswith(f"{TEST_PATH}::test_case")
     else:
         assert removed == ()
+
+
+@pytest.mark.parametrize(
+    "form", ["from-package", "direct-module", "mixed-module", "namespace-member", "symbol-alias"]
+)
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_module_value_alias_preserves_exact_consumer_dependency_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    form: str, changed: bool, snapshot: bool,
+) -> None:
+    test_source = "import pytest\n"
+    if form == "symbol-alias":
+        test_source += "from ultimate_ai_agent.subject import runtime_value as read_value\n"
+    elif form in {"from-package", "mixed-module"}:
+        test_source += "from ultimate_ai_agent import subject as subject_module\n"
+    else:
+        test_source += "import ultimate_ai_agent.subject as subject_module\n"
+    module_argument = form in {"from-package", "direct-module", "mixed-module"}
+    test_source += (
+        "def require_value(module):\n    value = module.runtime_value()\n"
+        if module_argument else "def require_value(value):\n"
+    )
+    test_source += (
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+        "def test_case():\n"
+    )
+    if form == "mixed-module":
+        test_source += "    assert callable(subject_module.runtime_value)\n"
+    argument = (
+        "subject_module" if module_argument else
+        "read_value()" if form == "symbol-alias" else "subject_module.runtime_value()"
+    )
+    test_source += f"    assert require_value({argument}) == 1\n"
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("from_package", [False, True], ids=["direct-module", "from-package"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_module_alias_does_not_resolve_an_absent_static_member(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    from_package: bool, snapshot: bool,
+) -> None:
+    imported = (
+        "from ultimate_ai_agent import subject as subject_module\n" if from_package else
+        "import ultimate_ai_agent.subject as subject_module\n"
+    )
+    test_source = "import pytest\n" + imported + (
+        "def test_case():\n    value = subject_module.absent_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        current_subject="def runtime_value(): return 1\n", additions={},
+    )
+    with pytest.raises(guard.TestCorpusGuardError, match="binding cannot be resolved"):
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+
+
+@pytest.mark.parametrize("explicit_child", [False, True], ids=["package", "explicit-child"])
+@pytest.mark.parametrize("as_value", [False, True], ids=["member-call", "module-value"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_package_namespace_child_retains_runtime_producer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    explicit_child: bool, as_value: bool, changed: bool, snapshot: bool,
+) -> None:
+    test_source = "import pytest\n" + (
+        "import ultimate_ai_agent.subject\n" if explicit_child else
+        "import ultimate_ai_agent\n"
+    )
+    test_source += (
+        "def require_value(owner):\n    value = owner.runtime_value()\n"
+        if as_value else "def require_value(value):\n"
+    )
+    test_source += (
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+        "def test_case():\n"
+    )
+    argument = (
+        "ultimate_ai_agent.subject" if as_value else
+        "ultimate_ai_agent.subject.runtime_value()"
+    )
+    test_source += f"    assert require_value({argument}) == 1\n"
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_additions={PACKAGE_PATH: "from . import subject\n"},
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("member", ["unchanged", "changed", "absent"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_aliased_module_leaf_named_member_is_not_a_namespace_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    member: str, snapshot: bool,
+) -> None:
+    test_source = (
+        "import pytest\nimport ultimate_ai_agent.subject as ultimate_ai_agent\n"
+        "def test_case():\n    value = ultimate_ai_agent.subject()\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    base_subject = (
+        "def unrelated(): return 1\n" if member == "absent" else
+        "def subject(): return 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source, base_subject=base_subject,
+        current_subject=(
+            "def subject(): return None\n" if member == "changed" else base_subject
+        ), additions={},
+    )
+    if member == "absent":
+        with pytest.raises(guard.TestCorpusGuardError, match="binding cannot be resolved"):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        return
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if member == "changed":
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("direct_module", [False, True], ids=["static-package", "direct-module"])
+@pytest.mark.parametrize("changed_source", ["package-member", "child-module"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_package_value_precedence_is_distinct_from_direct_module_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    direct_module: bool, changed_source: str, snapshot: bool,
+) -> None:
+    test_source = "import pytest\n" + (
+        "import ultimate_ai_agent.subject as chosen\n" if direct_module else
+        "from ultimate_ai_agent import subject as chosen\n"
+    )
+    test_source += (
+        "def require_value(owner):\n    value = owner.runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+        "def test_case(): assert require_value(chosen) == 1\n"
+    )
+    package_source = (
+        "class Value:\n    def runtime_value(self): return 1\nsubject = Value()\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_additions={PACKAGE_PATH: package_source},
+        current_subject=(
+            "def runtime_value(): return None\n" if changed_source == "child-module" else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    if changed_source == "package-member":
+        (tmp_path / PACKAGE_PATH).write_text(
+            package_source.replace("return 1", "return None"), encoding="utf-8"
+        )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    # A direct module value retains its executed package initializer as part
+    # of its conservative source closure, even when that initializer's member
+    # is not the selected value. A static package value excludes the dormant child.
+    closure_changed = direct_module or changed_source == "package-member"
+    if closure_changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize(
+    "imports,expression",
+    [
+        (
+            "import ultimate_ai_agent.decoy\nimport ultimate_ai_agent.subject\n",
+            "ultimate_ai_agent.subject.runtime_value()",
+        ),
+        (
+            "import ultimate_ai_agent.decoy\nimport ultimate_ai_agent.subject as ultimate_ai_agent\n",
+            "ultimate_ai_agent.runtime_value()",
+        ),
+        (
+            "import ultimate_ai_agent.subject\nimport ultimate_ai_agent.subject as ultimate_ai_agent\n",
+            "ultimate_ai_agent.runtime_value()",
+        ),
+        (
+            "import ultimate_ai_agent.decoy as ultimate_ai_agent\nimport ultimate_ai_agent.subject\n",
+            "ultimate_ai_agent.subject.runtime_value()",
+        ),
+    ],
+    ids=["same-root-namespaces", "namespace-to-other-alias", "namespace-to-same-alias", "alias-to-namespace"],
+)
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_multiple_import_binding_epochs_retain_active_runtime_subject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    imports: str, expression: str, changed: bool, snapshot: bool,
+) -> None:
+    test_source = "import pytest\n" + imports + (
+        f"def test_case():\n    value = {expression}\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_additions={
+            "src/ultimate_ai_agent/decoy.py": (
+                "def runtime_value(): return 1\n"
+                "class Value:\n    def runtime_value(self): return 1\n"
+                "subject = Value()\n"
+            ),
+        },
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    if ".decoy" in imports:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^ambiguous strict runtime import binding cannot be inventoried safely$",
+        ):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        return
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_unused_competing_imports_preserve_independent_consumer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    changed: bool, snapshot: bool,
+) -> None:
+    test_source = (
+        "import pytest\n"
+        "import ultimate_ai_agent.decoy as unused\n"
+        "import ultimate_ai_agent.subject as unused\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case():\n    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source,
+        base_additions={
+            "src/ultimate_ai_agent/decoy.py": "def runtime_value(): return 1\n",
+        },
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("ambiguous", [False, True], ids=["dormant-scope", "referenced-owner"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_transitive_import_owner_keeps_ambiguity_within_referenced_scope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ambiguous: bool, changed: bool, snapshot: bool,
+) -> None:
+    helper_source = "import pytest\n"
+    if ambiguous:
+        helper_source += (
+            "import ultimate_ai_agent.decoy as producer\n"
+            "import ultimate_ai_agent.subject as producer\n"
+        )
+    else:
+        helper_source += (
+            "import ultimate_ai_agent.subject as producer\n"
+            "def dormant():\n    import ultimate_ai_agent.decoy as producer\n"
+            "    return producer.runtime_value()\n"
+        )
+    helper_source += (
+        "def require_value():\n    value = producer.runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from tests.helpers import require_value\n"
+        "def test_case(): assert require_value() == 1\n",
+        base_additions={
+            "tests/__init__.py": "",
+            "tests/helpers.py": helper_source,
+            "src/ultimate_ai_agent/decoy.py": "def runtime_value(): return 1\n",
+        },
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    if ambiguous:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^ambiguous strict runtime import binding cannot be inventoried safely$",
+        ):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        return
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("read_after", [False, True], ids=["read-before", "read-after"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_local_mixed_namespace_alias_binding_is_explicitly_unsupported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    read_after: bool, changed: bool, snapshot: bool,
+) -> None:
+    test_source = (
+        "import pytest\ndef test_case():\n    import ultimate_ai_agent.subject\n"
+    )
+    if not read_after:
+        test_source += "    value = ultimate_ai_agent.subject.runtime_value()\n"
+    test_source += "    import ultimate_ai_agent.subject as ultimate_ai_agent\n"
+    if read_after:
+        test_source += "    value = ultimate_ai_agent.runtime_value()\n"
+    test_source += (
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n"
+    )
+    subject = (
+        "def runtime_value(): return 1\n"
+        "class Value:\n    def runtime_value(self): return 1\nsubject = Value()\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, test_source, base_subject=subject,
+        current_subject=subject.replace("return 1", "return None", 1) if changed else subject,
+        additions={},
+    )
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="^ambiguous strict runtime import binding cannot be inventoried safely$",
+    ):
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+
+
+@pytest.mark.parametrize("nested_class", [False, True], ids=["nested-function", "nested-class"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_reachable_nested_callable_retains_its_own_import_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    nested_class: bool, changed: bool, snapshot: bool,
+) -> None:
+    helper_source = "def require_value():\n"
+    if nested_class:
+        helper_source += "    class Callback:\n        def run(self):\n"
+        indent = "            "
+    else:
+        helper_source += "    def callback():\n"
+        indent = "        "
+    body = (
+        "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+        "value = runtime_value()\nif value is None: pytest.skip('unavailable')\n"
+        "return value\n"
+    )
+    helper_source += "".join(indent + line + "\n" for line in body.splitlines())
+    helper_source += (
+        "    return Callback().run()\n" if nested_class else "    return callback()\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from tests.helpers import require_value\n"
+        "def test_case(): assert require_value() == 1\n",
+        base_additions={"tests/__init__.py": "", "tests/helpers.py": helper_source},
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_default_named_imported_fixture_retains_injected_producer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    changed: bool, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "import pytest\nfrom tests.helpers import value\n"
+        "@pytest.fixture\ndef outer(value): return value\n"
+        "def test_case(outer): assert outer == 1\n",
+        base_additions={
+            "tests/__init__.py": "",
+            "tests/helpers.py": (
+                "import pytest\nfrom ultimate_ai_agent.subject import runtime_value\n"
+                "@pytest.fixture\ndef value():\n    result = runtime_value()\n"
+                "    if result is None: pytest.skip('unavailable')\n    return result\n"
+            ),
+        },
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("scope", ["global", "nonlocal"])
+@pytest.mark.parametrize("reached", [False, True], ids=["uncalled", "reached"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_reached_import_installer_write_retains_selected_producer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    scope: str, reached: bool, changed: bool, snapshot: bool,
+) -> None:
+    helper_source = "import pytest\n"
+    if scope == "global":
+        helper_source += (
+            "import ultimate_ai_agent.decoy as producer\n"
+            "def install():\n    global producer\n"
+            "    import ultimate_ai_agent.subject as producer\n"
+            "def require_value():\n"
+        )
+    else:
+        helper_source += (
+            "def require_value():\n    import ultimate_ai_agent.decoy as producer\n"
+            "    def install():\n        nonlocal producer\n"
+            "        import ultimate_ai_agent.subject as producer\n"
+        )
+    if reached:
+        helper_source += "    install()\n"
+    helper_source += (
+        "    value = producer.runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from tests.helpers import require_value\n"
+        "def test_case(): assert require_value() == 1\n",
+        base_additions={
+            "tests/__init__.py": "",
+            "tests/helpers.py": helper_source,
+            "src/ultimate_ai_agent/decoy.py": "def runtime_value(): return 1\n",
+        },
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    if reached and changed:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::test_case")
+    else:
+        assert removed == ()

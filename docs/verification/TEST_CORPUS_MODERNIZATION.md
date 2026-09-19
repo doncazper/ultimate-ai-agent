@@ -60,9 +60,9 @@ collection-neutral and preserving revision-owned evidence for consumers that
 can abort test execution. New application dependencies must belong to the
 successfully proven current closure of an existing substituted application
 module; an absent baseline file alone never permits reuse. Recognized
-execution-abort and dynamic
-import forms cannot be hidden, including object-bound skip methods and bounded
-builtin getter aliases. For new execution-dependency admission, a recognized
+execution-abort and dynamic import forms cannot be hidden, including object-bound
+skip methods and bounded builtin getter aliases. For new execution-dependency
+admission, a recognized
 getter's member name must resolve from a literal or bounded string
 concatenation. A `skipTest` selector, unresolved selector, or unsupported getter
 argument shape refuses admission, including in dormant function bodies. Getter
@@ -70,8 +70,8 @@ references also require a closed use grammar: an inline assignment, wrapper,
 container or callback must not conceal an unproven getter invocation. Unsupported
 getter-value escapes refuse admission. This stricter admission screen does not
 change the existing scope-sensitive test consumer's alias and rebinding rules.
-Test-owned helpers and parameter/decorator
-data retain their baseline bindings. Source and import-resolution observations,
+Test-owned helpers and parameter/decorator data retain their baseline bindings.
+Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,
 ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
@@ -87,6 +87,13 @@ value change or dependency relocation may conservatively require review when the
 consumer can abort; the guard does not claim general value equivalence.
 The consumer proof uses the existing local and explicitly imported fixture graph.
 Conftest and plugin discovery retain their separate existing checks.
+Module values, static members and explicit package namespaces retain their lexical
+import bindings. Competing import bindings that cannot be selected exactly refuse
+the comparison, including when source text is unchanged; one from-import's
+module/member alternatives remain a single supported import specification.
+Reached helpers retain declared global and nonlocal import writes as producer
+dependencies even when the helper does not read the imported name itself.
+An unreferenced installer does not replace the consumer's selected binding.
 
 Admission shares exact source and dependency-edge facts within each revision's
 proof graph instead of rebuilding cached dependency suffixes for every root.
