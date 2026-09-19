@@ -94,6 +94,15 @@ consumer evidence includes passed abort capabilities and injected fixture
 dependencies, and survives the non-aborting-helper normalization retry. A harmless
 value change or dependency relocation may conservatively require review when the
 consumer can abort; the guard does not claim general value equivalence.
+Reached definitions also retain represented header expressions, including
+positional and keyword-only defaults, decorators and annotations, in their
+defining lexical scope. Default bindings precede parameter shadowing; a captured
+callable's body retains its separate runtime lookup scope. Default-bound callbacks
+and default factories contribute producer evidence without executing expressions.
+Dependencies remain conservative when a caller overrides an argument; this is
+not a general Python argument binder. Evidence follows represented reached
+bindings; a compound or class binding may conservatively retain multiple
+contained definitions.
 The consumer proof uses the existing local and explicitly imported fixture graph.
 Conftest and plugin discovery retain their separate existing checks.
 Module values, static members and explicit package namespaces retain their lexical

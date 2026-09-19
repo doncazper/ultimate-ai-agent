@@ -14,7 +14,7 @@ import stat
 import subprocess
 import time
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Mapping
@@ -598,6 +598,11 @@ class _PythonBindingModuleAnalysis:
     imported_fixture_bindings: dict[str, tuple[str, ...]] | None = None
     runtime_import_provenance: dict[str, _PythonRuntimeImportProvenance] | None = None
     consumer_certificate: bool = False
+    definition_owners: dict[tuple[int, int], ast.AST] | None = None
+    definition_contexts: dict[tuple[int, int, bool], _PythonBindingModuleAnalysis] | None = None
+    definition_events: dict[tuple[int, int], dict[str, tuple[ast.AST, ...]]] | None = None
+    runtime_callable_children: dict[tuple[int, int], tuple[ast.AST, ...]] | None = None
+    definition_scope_names: dict[tuple[int, int], tuple[frozenset[str], frozenset[str], frozenset[str]]] | None = None
 
 
 @dataclass(frozen=True)
@@ -2350,9 +2355,9 @@ def _has_pytest_collection_class_mutation(
 
 
 def _definition_time_nodes(
-    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef,
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda,
 ) -> tuple[ast.AST, ...]:
-    expressions: list[ast.AST] = [*node.decorator_list]
+    expressions: list[ast.AST] = [*getattr(node, "decorator_list", ())]
     expressions.extend(getattr(node, "type_params", ()))
     if isinstance(node, ast.ClassDef):
         expressions.extend(node.bases)
@@ -2374,7 +2379,7 @@ def _definition_time_nodes(
         )
         if argument.annotation is not None
     )
-    if node.returns is not None:
+    if getattr(node, "returns", None) is not None:
         expressions.append(node.returns)
     return tuple(expressions)
 
@@ -4758,6 +4763,39 @@ def _python_record_runtime_import_provenance(
         )
 
 
+
+def _python_runtime_module_definitions(tree: ast.Module) -> dict[str, tuple[_ModuleBinding, ...]]:
+    """Index module-owned conditional definitions for consumer evidence only."""
+
+    cached = getattr(tree, "_uaa_runtime_module_definitions", None)
+    if cached is not None:
+        return cached
+    definitions: dict[str, list[_ModuleBinding]] = {}
+    pending: list[tuple[ast.AST, tuple[ast.stmt, ...]]] = [(node, ()) for node in tree.body]
+    while pending:
+        node, compounds = pending.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bucket = definitions.setdefault(node.name, [])
+            for represented in (*compounds, node):
+                binding = _ModuleBinding(represented)
+                if binding not in bucket:
+                    bucket.append(binding)
+            continue
+        enclosing = (*compounds, node) if isinstance(node, ast.stmt) else compounds
+        pending.extend(
+            (child, enclosing) for child in ast.iter_child_nodes(node)
+            if isinstance(child, (ast.stmt, ast.ExceptHandler, ast.match_case))
+        )
+    result = {name: tuple(bindings) for name, bindings in definitions.items()}
+    setattr(tree, "_uaa_runtime_definition_compounds", frozenset(
+        (binding.node.lineno, binding.node.col_offset)
+        for bindings in result.values() for binding in bindings
+        if not isinstance(binding.node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ))
+    setattr(tree, "_uaa_runtime_module_definitions", result)
+    return result
+
+
 def _python_binding_module_analysis(
     module: str,
     source: str,
@@ -4810,6 +4848,11 @@ def _python_binding_module_analysis_impl(
         relative_package = module.rsplit(".", 1)[0]
     module_bindings = _python_module_bindings(tree)
     runtime_consumer = getattr(import_source_resolver, "_uaa_runtime_consumer", False)
+    if runtime_consumer:
+        module_bindings = dict(module_bindings)
+        for name, definitions in _python_runtime_module_definitions(tree).items():
+            existing = module_bindings.get(name, ())
+            module_bindings[name] = (*existing, *(binding for binding in definitions if binding not in existing))
     import_nodes = tuple(
         node for node in _module_execution_nodes(tree)
         if isinstance(node, (ast.Import, ast.ImportFrom))
@@ -4892,6 +4935,19 @@ def _python_binding_module_analysis_impl(
                         (*imported_fixture_bindings.get(fixture_name, ()), local_name)
                     ))
                 break
+    definition_owners: dict[tuple[int, int], ast.AST] = {}
+    if runtime_consumer:
+        pending_owners = [(tree, tree)]
+        while pending_owners:
+            child, owner = pending_owners.pop()
+            if hasattr(child, "lineno"):
+                definition_owners[(child.lineno, child.col_offset)] = owner
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                pending_owners.extend((part, owner) for part in _definition_time_nodes(child))
+                body = (child.body,) if isinstance(child, ast.Lambda) else child.body
+                pending_owners.extend((part, child) for part in body)
+            else:
+                pending_owners.extend((part, owner) for part in ast.iter_child_nodes(child))
     analysis = _PythonBindingModuleAnalysis(
         tree=tree,
         relative_package=relative_package,
@@ -4908,10 +4964,165 @@ def _python_binding_module_analysis_impl(
         imported_fixture_bindings=imported_fixture_bindings if runtime_consumer else None,
         runtime_import_provenance=runtime_import_provenance if runtime_consumer else None,
         consumer_certificate=getattr(import_source_resolver, "_uaa_consumer_certificate", None) is not None,
+        definition_owners=definition_owners,
+        definition_contexts={},
+        definition_events={},
+        runtime_callable_children={},
+        definition_scope_names={},
     )
     if analysis_cache is not None:
         analysis_cache[cache_key] = analysis
     return analysis
+
+
+
+def _python_runtime_definition_context(
+    analysis: _PythonBindingModuleAnalysis,
+    node: ast.AST,
+    *,
+    callable_body: bool = False,
+) -> _PythonBindingModuleAnalysis:
+    """Bind reached definition inputs to source-owned lexical events.
+
+    Defaults precede the callable's parameters and body. Each lexical scope is
+    indexed once, and each context retains only names used by its expressions;
+    no preceding compound subtree or transitive source map is copied.
+    """
+
+    position = (node.lineno, node.col_offset)
+    cache_key = (*position, callable_body)
+    cache = analysis.definition_contexts
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
+    owners = analysis.definition_owners or {}
+    owner = owners.get(position, analysis.tree)
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)) and not callable_body:
+        expressions = _definition_time_nodes(node)
+    else:
+        expressions = (node,)
+    names = {
+        child.id for expression in expressions for child in ast.walk(expression)
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
+    }
+    callable_globals: set[str] = set()
+    if callable_body and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        own_nodes = _scope_execution_nodes([node.body] if isinstance(node, ast.Lambda) else node.body)
+        callable_globals = {name for part in own_nodes if isinstance(part, ast.Global) for name in part.names}
+        declared = callable_globals | {
+            name for part in own_nodes if isinstance(part, ast.Nonlocal) for name in part.names
+        }
+        arguments = (
+            *node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+            *((node.args.vararg,) if node.args.vararg is not None else ()),
+            *((node.args.kwarg,) if node.args.kwarg is not None else ()),
+        )
+        names.difference_update(
+            ({argument.arg for argument in arguments}
+             | {name for part in own_nodes for name in _execution_binding_names(part)}) - declared
+        )
+        while isinstance(owner, ast.ClassDef):
+            owner = owners.get((owner.lineno, owner.col_offset), analysis.tree)
+    imported_modules: dict[str, tuple[str, ...]] = {}
+    module_bindings: dict[str, tuple[_ModuleBinding, ...]] = {}
+    provenance: dict[str, _PythonRuntimeImportProvenance] = {}
+
+    def scope_events(scope: ast.AST) -> dict[str, tuple[ast.AST, ...]]:
+        key = (getattr(scope, "lineno", -1), getattr(scope, "col_offset", -1))
+        events_cache = analysis.definition_events
+        if events_cache is not None and key in events_cache:
+            return events_cache[key]
+        grouped: dict[str, list[ast.AST]] = {}
+        parts = _scope_execution_nodes([scope.body] if isinstance(scope, ast.Lambda) else scope.body)
+        for part in parts:
+            for name in _execution_binding_names(part):
+                grouped.setdefault(name, []).append(part)
+        arguments = (
+            (*scope.args.posonlyargs, *scope.args.args, *scope.args.kwonlyargs,
+             *((scope.args.vararg,) if scope.args.vararg is not None else ()),
+             *((scope.args.kwarg,) if scope.args.kwarg is not None else ()))
+            if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) else ()
+        )
+        if analysis.definition_scope_names is not None:
+            analysis.definition_scope_names[key] = (
+                frozenset(argument.arg for argument in arguments),
+                frozenset(name for part in parts if isinstance(part, ast.Global) for name in part.names),
+                frozenset(name for part in parts if isinstance(part, ast.Nonlocal) for name in part.names),
+            )
+        events = {
+            name: tuple(sorted(parts, key=lambda part: (part.lineno, part.col_offset)))
+            for name, parts in grouped.items()
+        }
+        if events_cache is not None:
+            events_cache[key] = events
+        return events
+
+    for name in sorted(names):
+        scope = analysis.tree if name in callable_globals else owner
+        before = None if callable_body else position
+        while True:
+            owned_events = scope_events(scope).get(name, ())
+            events = tuple(
+                part for part in owned_events
+                if before is None or (part.lineno, part.col_offset) < before
+            )
+            if events:
+                imports = tuple(part for part in events if isinstance(part, (ast.Import, ast.ImportFrom)))
+                values = tuple(part for part in events if not isinstance(part, (ast.Import, ast.ImportFrom)))
+                if imports and values:
+                    # Conditional mixed writes need an execution proof which
+                    # this represented-input grammar deliberately does not make.
+                    raise TestCorpusGuardError(
+                        "definition-time runtime binding cannot be inventoried safely"
+                    )
+                if imports:
+                    candidates = _python_import_modules(
+                        ast.Module(body=list(imports), type_ignores=[]),
+                        relative_package=analysis.relative_package,
+                    ).get(name, ())
+                    imported_modules[name] = candidates
+                    owned_provenance: dict[str, _PythonRuntimeImportProvenance] = {}
+                    for part in imports:
+                        _python_record_runtime_import_provenance(
+                            owned_provenance, part,
+                            allow_namespace_rebind=isinstance(scope, ast.Module),
+                            relative_package=analysis.relative_package,
+                        )
+                    if name in owned_provenance:
+                        provenance[name] = owned_provenance[name]
+                else:
+                    module_bindings[name] = tuple(_ModuleBinding(part) for part in values)
+                break
+            if isinstance(scope, ast.Module):
+                break
+            scope_key = (getattr(scope, "lineno", -1), getattr(scope, "col_offset", -1))
+            arguments, globals_, nonlocals = (analysis.definition_scope_names or {}).get(
+                scope_key, (frozenset(), frozenset(), frozenset())
+            )
+            if name not in globals_ | nonlocals and name in arguments:
+                # A captured formal is a source-owned symbol, not a missing
+                # import. Its body/abort AST and the caller's producer inputs
+                # remain evidence; do not substitute a same-named module value.
+                break
+            if name not in globals_ | nonlocals and owned_events:
+                raise TestCorpusGuardError(
+                    "definition-time runtime binding cannot be inventoried safely"
+                )
+            crossed_function = isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+            scope = analysis.tree if name in globals_ else owners.get((scope.lineno, scope.col_offset), analysis.tree)
+            if crossed_function:
+                while isinstance(scope, ast.ClassDef):
+                    scope = owners.get((scope.lineno, scope.col_offset), analysis.tree)
+            # An enclosing callable executes after its own definition. Retain
+            # its enclosing scope's possible bindings without assuming a caller
+            # or executing an import installer.
+            before = None
+    context = replace(
+        analysis, imported_modules=imported_modules, module_bindings=module_bindings,
+        runtime_import_provenance=provenance, node_analyses={},
+    )
+    if cache is not None:
+        cache[cache_key] = context
+    return context
 
 
 def _python_binding_node_analysis(
@@ -5324,6 +5535,8 @@ def _python_imported_binding_source_impl(
         return parameter_callable_identity
     pending = [binding_name]
     runtime_local_bindings: dict[str, tuple[_ModuleBinding, ...]] = {}
+    runtime_local_analyses: dict[str, _PythonBindingModuleAnalysis] = {}
+    binding_node_facts: dict[tuple[int, int], _PythonBindingNodeAnalysis] = {}
     resolved: set[str] = set()
     binding_nodes: dict[tuple[int, int], ast.AST] = {}
     imported_requirements: dict[str, set[str]] = {}
@@ -5462,14 +5675,53 @@ def _python_imported_binding_source_impl(
             )
         for module_binding in bindings:
             node = module_binding.node
+            node_owner = runtime_local_analyses.get(name, analysis)
+            if (
+                analysis.runtime_consumer and node_owner is analysis
+                and (node.lineno, node.col_offset) in getattr(analysis.tree, "_uaa_runtime_definition_compounds", ())
+            ):
+                node_owner = _python_runtime_definition_context(analysis, node)
             binding_nodes[(node.lineno, node.col_offset)] = node
             node_analysis = (
                 root_analysis if node is _root_node and root_analysis is not None
-                else _python_binding_node_analysis(analysis, node)
+                else _python_binding_node_analysis(node_owner, node)
             )
-            for local_node in node_analysis.runtime_local_bindings:
+            binding_node_facts[(node.lineno, node.col_offset)] = node_analysis
+            definition_inputs = (
+                _definition_time_nodes(node)
+                if analysis.runtime_consumer and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda))
+                else ()
+            )
+            if definition_inputs:
+                definition_context = _python_runtime_definition_context(analysis, node)
+                for expression in definition_inputs:
+                    expression_key = f"runtime-definition-input:{expression.lineno}:{expression.col_offset}"
+                    runtime_local_bindings[expression_key] = (_ModuleBinding(expression),)
+                    runtime_local_analyses[expression_key] = definition_context
+                    if expression_key not in resolved:
+                        pending.append(expression_key)
+            local_nodes = list(node_analysis.runtime_local_bindings)
+            if analysis.runtime_consumer:
+                position = (node.lineno, node.col_offset)
+                children_cache = analysis.runtime_callable_children
+                lambdas = children_cache.get(position) if children_cache is not None else None
+                if lambdas is None:
+                    lambdas = tuple(
+                        part for part in _scope_execution_nodes(
+                            node.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) else [node]
+                        )
+                        if isinstance(part, ast.Lambda) and part is not node
+                    )
+                    if children_cache is not None:
+                        children_cache[position] = lambdas
+                local_nodes.extend(lambdas)
+            for local_node in local_nodes:
                 local_key = f"runtime-local:{local_node.lineno}:{local_node.col_offset}"
                 runtime_local_bindings[local_key] = (_ModuleBinding(local_node),)
+                if isinstance(local_node, ast.Lambda) or node_owner is not analysis:
+                    runtime_local_analyses[local_key] = _python_runtime_definition_context(
+                        analysis, local_node, callable_body=True
+                    )
                 if local_key not in resolved:
                     pending.append(local_key)
             node_candidates = dict(node_analysis.runtime_import_candidates)
@@ -5492,18 +5744,29 @@ def _python_imported_binding_source_impl(
                     for name in node_analysis.star_import_requirements
                     if name not in imported_modules and name not in module_bindings
                 )
-            pending.extend(
-                name
-                for name in node_analysis.local_dependency_names
-                if name not in resolved
-            )
+            if node_owner is analysis:
+                pending.extend(
+                    dependency for dependency in node_analysis.local_dependency_names
+                    if dependency not in resolved
+                )
+            else:
+                for dependency in node_analysis.local_dependency_names:
+                    for binding in node_owner.module_bindings.get(dependency, ()):
+                        local_node = binding.node
+                        local_key = f"runtime-definition:{local_node.lineno}:{local_node.col_offset}"
+                        runtime_local_bindings[local_key] = (binding,)
+                        if isinstance(local_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                            enclosing = (analysis.definition_owners or {}).get((local_node.lineno, local_node.col_offset), analysis.tree)
+                            if enclosing is not analysis.tree:
+                                runtime_local_analyses[local_key] = _python_runtime_definition_context(
+                                    analysis, local_node, callable_body=True
+                                )
+                        else:
+                            runtime_local_analyses[local_key] = _python_runtime_definition_context(analysis, local_node)
+                        if local_key not in resolved:
+                            pending.append(local_key)
     serialized_parts = [
-        (
-            root_analysis.serialized
-            if node is _root_node and root_analysis is not None
-            else _python_binding_node_analysis(analysis, node).serialized
-        )
-        for _position, node in sorted(binding_nodes.items())
+        facts.serialized for _position, facts in sorted(binding_node_facts.items())
     ]
     if not analysis.runtime_consumer:
         _reject_repository_reader_calls(tuple(binding_nodes.values()), imported_modules)
@@ -5610,12 +5873,7 @@ def _python_imported_binding_source_impl(
     )
     contains_cycle = "transitive-import-cycle=" in identity_material
     runtime_abort_posture = any(
-        (
-            root_analysis
-            if binding_node is _root_node and root_analysis is not None
-            else _python_binding_node_analysis(analysis, binding_node)
-        ).runtime_abort_posture
-        for binding_node in binding_nodes.values()
+        facts.runtime_abort_posture for facts in binding_node_facts.values()
     ) or any(
         "runtime-abort-posture=true" in part.splitlines() for part in serialized_parts
     )
@@ -8360,6 +8618,7 @@ def _parameterized_ref(
         ]
     elif runtime_consumer_identity is not None:
         expanded_node_ids = {id(helper) for helper in expanded_helpers.values()}
+        consumer_definitions = _python_runtime_module_definitions(tree)
         for root in function_scopes:
             local_dependencies = set()
             for scope_node in scope_execution_nodes_by_scope[id(root)]:
@@ -8374,7 +8633,10 @@ def _parameterized_ref(
                 _owned, candidates = runtime_scope_import_candidates(root, name)
                 if candidates:
                     continue
-                if any(id(binding.node) not in expanded_node_ids for binding in module_bindings.get(name, ())):
+                if any(
+                    id(binding.node) not in expanded_node_ids
+                    for binding in (*module_bindings.get(name, ()), *consumer_definitions.get(name, ()))
+                ):
                     local_dependencies.add(name)
             value_imports: set[tuple[tuple[str, ...], str]] = set()
             requirements = runtime_scope_import_requirements(
