@@ -597,6 +597,7 @@ class _PythonBindingModuleAnalysis:
     fixture_bindings: dict[str, str] | None = None
     imported_fixture_bindings: dict[str, tuple[str, ...]] | None = None
     runtime_import_provenance: dict[str, _PythonRuntimeImportProvenance] | None = None
+    consumer_certificate: bool = False
 
 
 @dataclass(frozen=True)
@@ -612,6 +613,176 @@ class _PythonRuntimeImportProvenance:
     namespaces: tuple[str, ...]
     source_spec: tuple[str, ...]
     ambiguous: bool
+
+
+class _PythonConsumerCertificate:
+    """Comparison-only represented-input facts, never a runtime safety proof.
+
+    Identity nodes retain child edges on cache hits. Changed hybrid selections
+    propagate backwards once, without copying a transitive source set per test.
+    """
+
+    def __init__(self, owner, baseline, hybrid):
+        self.owner = owner
+        self.baseline = baseline
+        self.hybrid = hybrid
+        self.parents: dict[tuple, set[tuple]] = {}
+        self.affected: set[tuple] = set()
+        self.values: dict[tuple, Any] = {}
+        self.active: set[tuple] = set()
+        self.stack: list[tuple] = []
+        self.suspended = 0
+        self.observations: dict[str, str | None] = {}
+        self.source_modules: set[str] = set()
+        self.opaque_reasons: dict[tuple, str] = {}
+
+        def read(module):
+            key = ("source", module)
+            self.link(key)
+            source = owner(module)
+            if module in self.observations and self.observations[module] != source:
+                raise TestCorpusGuardError("test inventory changed during verification")
+            self.observations[module] = source
+            if source is not None:
+                self.source_modules.add(module)
+                if len(self.source_modules) > MAX_PYTHON_DEPENDENCY_MODULES:
+                    raise TestCorpusGuardError("runtime consumer certificate exceeds module budget")
+            if self.baseline(module) != self.hybrid(module):
+                self.mark(key)
+            return source
+
+        counts = getattr(owner, "_uaa_local_python_module_counts", None)
+        if counts is not None:
+            setattr(read, "_uaa_local_python_module_counts", counts)
+        self.resolver = _python_runtime_consumer_resolver(read)
+        setattr(self.resolver, "_uaa_consumer_certificate", self)
+
+    def mark(self, key):
+        pending = [key]
+        while pending:
+            current = pending.pop()
+            if current in self.affected:
+                continue
+            self.affected.add(current)
+            pending.extend(self.parents.get(current, ()))
+
+    def link(self, key):
+        if self.stack and not self.suspended:
+            parent = self.stack[-1]
+            self.parents.setdefault(key, set()).add(parent)
+            if key in self.affected:
+                self.mark(parent)
+
+    def capture(self, key, build, *, module=None, source=None, attach=True):
+        if attach:
+            self.link(key)
+        if key in self.values:
+            return self.values[key]
+        if key in self.active:
+            return "consumer-certificate-cycle"
+        self.active.add(key)
+        self.stack.append(key)
+        try:
+            if module is not None:
+                self.resolver(module)
+            try:
+                value = build()
+            except TestCorpusGuardError as exc:
+                if any(word in str(exc) for word in ("budget", "exceeds", "changed during")):
+                    raise
+                self.opaque_reasons[key] = str(exc)
+                if module is None or source is None:
+                    self.mark(key)
+                else:
+                    self.capture_opaque(module, source)
+                value = "consumer-certificate-opaque"
+            self.values[key] = value
+            return value
+        finally:
+            self.stack.pop()
+            self.active.remove(key)
+
+    def capture_opaque(self, module, source):
+        """Bind opaque syntax iteratively to its represented static source cone."""
+        first = ("opaque", module, hashlib.sha256(source.encode()).hexdigest())
+        self.link(first)
+        pending = [(first, module, source)]
+        scheduled = {first}
+        while pending:
+            key, current_module, current_source = pending.pop()
+            if key in self.values:
+                continue
+            self.stack.append(key)
+            try:
+                self.resolver(current_module)
+                source_path, text = current_source.split("\n", 1)
+                package = current_module if source_path.endswith("/__init__.py") else current_module.rpartition(".")[0] or current_module
+                try:
+                    tree = ast.parse(text, filename=current_module)
+                except SyntaxError:
+                    self.mark(key)
+                    self.values[key] = "consumer-certificate-incomplete"
+                    continue
+                imports = _python_import_modules(tree, relative_package=package)
+                lazy = _python_lazy_export_modules(tree, relative_package=package)
+                grouped = _python_grouped_lazy_export_modules(tree)
+                candidates = {candidate for group in imports.values() for candidate in group}
+                candidates.update(_python_star_import_modules(tree, relative_package=package))
+                candidates.update((*lazy, *grouped))
+                if any(not group for group in imports.values()):
+                    self.mark(key)
+                try:
+                    candidates.update(_dynamic_python_import_modules(
+                        tree, imports, relative_package=package,
+                        lazy_export_modules=(*lazy, *grouped),
+                    ))
+                except TestCorpusGuardError as exc:
+                    # Opaque computed syntax is source-bound, not interpreted or
+                    # declared non-aborting. Actual affected consumers still
+                    # require the separate strict proof.
+                    self.opaque_reasons[key] = str(exc)
+                parts = current_module.split(".")
+                candidates.update(".".join(parts[:index]) for index in range(1, len(parts)))
+                for candidate in sorted(candidates):
+                    try:
+                        child = self.resolver(candidate)
+                    except TestCorpusGuardError as exc:
+                        if "budget" in str(exc):
+                            raise
+                        self.mark(key)
+                        continue
+                    if child is not None:
+                        child_key = ("opaque", candidate, hashlib.sha256(child.encode()).hexdigest())
+                        self.link(child_key)
+                        if child_key not in self.values and child_key not in scheduled:
+                            scheduled.add(child_key)
+                            pending.append((child_key, candidate, child))
+                self.values[key] = "consumer-certificate-source=" + key[-1]
+            finally:
+                self.stack.pop()
+        return self.values[first]
+
+    def binding_candidates(self, candidates, names):
+        # Reading an unchanged alternative is insufficient: its selected
+        # binding may re-export a changed leaf. Keep that complete child edge.
+        for candidate in candidates:
+            source = self.resolver(candidate)
+            if source is None:
+                continue
+            for name in names:
+                _python_imported_binding_source(
+                    candidate, source,
+                    _binding_name_for_resolved_import(candidates, candidate, name),
+                    self.resolver,
+                )
+
+    def requires_proof(self, consumer):
+        if self.active:
+            raise TestCorpusGuardError("runtime consumer certificate is incomplete")
+        key = ("consumer", consumer)
+        if key not in self.values:
+            raise TestCorpusGuardError("runtime consumer certificate is missing")
+        return key in self.affected
 
 
 @dataclass(frozen=True)
@@ -3688,6 +3859,25 @@ def _python_module_dependency_identity(
     source: str,
     import_source_resolver: Callable[[str], str | None] | None,
 ) -> str:
+    certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
+    if certificate is None:
+        return _python_module_dependency_identity_impl(module, source, import_source_resolver)
+    key = ("module-identity", module, hashlib.sha256(source.encode()).hexdigest())
+    return certificate.capture(
+        key,
+        # Certificates need shared source edges, not a serialized transitive
+        # module identity for every overlapping root. Strict proof still uses
+        # the ordinary implementation above, outside certificate mode.
+        lambda: certificate.capture_opaque(module, source),
+        module=module, source=source,
+    )
+
+
+def _python_module_dependency_identity_impl(
+    module: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+) -> str:
     """Bind a module object to the bounded closure of its local dependencies."""
 
     cache_key = (
@@ -3802,6 +3992,13 @@ def _python_module_dependency_identity(
             )
         )
         for candidates in dependency_candidates:
+            if getattr(import_source_resolver, "_uaa_runtime_consumer", False):
+                resolved_dependencies.extend(
+                    (candidate, imported_source)
+                    for candidate in candidates
+                    if (imported_source := import_source_resolver(candidate)) is not None
+                )
+                continue
             resolved_import = next(
                 (
                     (candidate, imported_source)
@@ -4566,6 +4763,23 @@ def _python_binding_module_analysis(
     source: str,
     import_source_resolver: Callable[[str], str | None] | None,
 ) -> _PythonBindingModuleAnalysis:
+    certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
+    if certificate is None:
+        return _python_binding_module_analysis_impl(module, source, import_source_resolver)
+    # Module indexing probes imports for fixture names. These observations stay
+    # revalidated, but become consumer edges only when a binding uses them.
+    certificate.suspended += 1
+    try:
+        return _python_binding_module_analysis_impl(module, source, import_source_resolver)
+    finally:
+        certificate.suspended -= 1
+
+
+def _python_binding_module_analysis_impl(
+    module: str,
+    source: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+) -> _PythonBindingModuleAnalysis:
     cache_key = (module, hashlib.sha256(source.encode("utf-8")).hexdigest())
     analysis_cache: dict[
         tuple[str, str], _PythonBindingModuleAnalysis
@@ -4693,6 +4907,7 @@ def _python_binding_module_analysis(
         fixture_bindings=fixture_bindings,
         imported_fixture_bindings=imported_fixture_bindings if runtime_consumer else None,
         runtime_import_provenance=runtime_import_provenance if runtime_consumer else None,
+        consumer_certificate=getattr(import_source_resolver, "_uaa_consumer_certificate", None) is not None,
     )
     if analysis_cache is not None:
         analysis_cache[cache_key] = analysis
@@ -4842,7 +5057,7 @@ def _python_binding_node_analysis(
         runtime_values.update(runtime_import_writes)
         for root in imported_requirements:
             owned = provenance.get(root)
-            if (_check_import_ambiguity or root in runtime_import_writes) and owned is not None and owned.ambiguous:
+            if not analysis.consumer_certificate and (_check_import_ambiguity or root in runtime_import_writes) and owned is not None and owned.ambiguous:
                 raise TestCorpusGuardError(
                     "ambiguous strict runtime import binding cannot be inventoried safely"
                 )
@@ -4925,6 +5140,40 @@ def _python_parameter_callable_identity(
 
 
 def _python_imported_binding_source(
+    module: str,
+    source: str,
+    binding_name: str,
+    import_source_resolver: Callable[[str], str | None] | None,
+    *,
+    _seen_bindings: frozenset[tuple[str, str]] = frozenset(),
+    _parameter_value: bool = False,
+    _materialized: bool = True,
+    _root_node: ast.AST | None = None,
+    _root_context: _PythonRuntimeConsumerRoot | None = None,
+) -> str:
+    certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
+    arguments = dict(
+        _seen_bindings=_seen_bindings, _parameter_value=_parameter_value,
+        _materialized=_materialized, _root_node=_root_node, _root_context=_root_context,
+    )
+    def build():
+        return _python_imported_binding_source_impl(
+            module, source, binding_name, import_source_resolver, **arguments
+        )
+    if certificate is None:
+        return build()
+    context = (
+        ast.dump(_root_node, include_attributes=False) if _root_node is not None else "",
+        repr(sorted((candidates, sorted(names)) for candidates, names in _root_context.imports.items()))
+        + repr(_root_context.local_dependencies) + repr(sorted(_root_context.value_imports))
+        if _root_context is not None else "",
+    )
+    key = ("binding-identity", module, binding_name,
+           hashlib.sha256(source.encode()).hexdigest(), _parameter_value, _materialized, context)
+    return certificate.capture(key, build, module=module, source=source)
+
+
+def _python_imported_binding_source_impl(
     module: str,
     source: str,
     binding_name: str,
@@ -5093,6 +5342,9 @@ def _python_imported_binding_source(
         if not bindings:
             candidates = imported_modules.get(name)
             if candidates:
+                certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
+                if certificate is not None:
+                    certificate.binding_candidates(candidates, (name,))
                 resolved_import = next(
                     (
                         (candidate, imported_source)
@@ -5261,6 +5513,9 @@ def _python_imported_binding_source(
             raise TestCorpusGuardError(
                 "relative transitive Python parameter data cannot be inventoried safely"
             )
+        certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
+        if certificate is not None:
+            certificate.binding_candidates(candidates, names)
         resolved_import = next(
             (
                 (candidate, imported_source)
@@ -5891,6 +6146,8 @@ def _parameterized_ref(
         [tuple[str, ...], tuple[_PythonRuntimeConsumerRoot, ...]], str
     ]
     | None = None,
+    runtime_consumer_certificate: bool = False,
+    runtime_helper_collapse: Callable[[], None] | None = None,
 ) -> str:
     runtime_source_resolver = runtime_import_source_resolver or import_source_resolver
     candidate_decorators = (*container_decorators, *node.decorator_list)
@@ -8094,7 +8351,14 @@ def _parameterized_ref(
         is_runtime_abort(execution_node) for execution_node in function_execution_nodes
     )
     strict_roots = []
-    if runtime_consumer_identity is not None:
+    if runtime_consumer_identity is not None and runtime_consumer_certificate:
+        # Certificate-only roots retain conservative owned binding facts; the
+        # precise lexical proof remains a separate, lazily requested operation.
+        strict_roots = [
+            _PythonRuntimeConsumerRoot(root, {}, (), frozenset())
+            for root in function_scopes
+        ]
+    elif runtime_consumer_identity is not None:
         expanded_node_ids = {id(helper) for helper in expanded_helpers.values()}
         for root in function_scopes:
             local_dependencies = set()
@@ -8341,6 +8605,8 @@ def _parameterized_ref(
             and not helper_has_runtime_abort
             and "runtime-abort-posture=true" not in identity.splitlines()
         ):
+            if runtime_helper_collapse is not None:
+                runtime_helper_collapse()
             return f"non-aborting-runtime-helper={helper.name}"
         return identity
 
@@ -9010,6 +9276,10 @@ def _python_inventory_entries(
     *,
     runtime_import_source_resolver: Callable[[str], str | None] | None = None,
     normalize_non_aborting_runtime_helpers: bool = False,
+    runtime_consumer_proofs: dict[str, str] | None = None,
+    runtime_consumer_certificate: _PythonConsumerCertificate | None = None,
+    runtime_consumer_keys: frozenset[str] | None = None,
+    runtime_helper_collapses: set[str] | None = None,
 ) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
         tree = ast.parse(text, filename=path)
@@ -10035,8 +10305,10 @@ def _python_inventory_entries(
     )
 
     strict_consumer_resolver = (
-        _python_runtime_consumer_resolver(import_source_resolver)
-        if import_source_resolver is not None
+        runtime_consumer_certificate.resolver
+        if runtime_consumer_certificate is not None
+        else _python_runtime_consumer_resolver(import_source_resolver)
+        if import_source_resolver is not None and runtime_consumer_proofs is not None
         else None
     )
     strict_autouse_declarations: tuple[str, ...] | None = None
@@ -10049,11 +10321,21 @@ def _python_inventory_entries(
         nonlocal strict_autouse_declarations
         if strict_consumer_resolver is None:
             return ""
-        if strict_autouse_declarations is None:
+        rooted_source = f"path={path}\n{text}"
+        if runtime_consumer_certificate is not None:
+            autouse_key = ("autouse", current_module, hashlib.sha256(text.encode()).hexdigest())
+            autouse = runtime_consumer_certificate.capture(
+                autouse_key,
+                lambda: _autouse_fixture_declarations(text, path, strict_consumer_resolver),
+                module=current_module, source=rooted_source, attach=False,
+            )
+            strict_autouse_declarations = autouse if isinstance(autouse, tuple) else ()
+            if autouse:
+                runtime_consumer_certificate.link(autouse_key)
+        elif strict_autouse_declarations is None:
             strict_autouse_declarations = _autouse_fixture_declarations(
                 text, path, strict_consumer_resolver
             )
-        rooted_source = f"path={path}\n{text}"
         parts = [
             _python_imported_binding_source(
                 current_module,
@@ -10061,7 +10343,7 @@ def _python_inventory_entries(
                 f"runtime-consumer:{root.node.name}",
                 strict_consumer_resolver,
                 _root_node=root.node,
-                _root_context=root,
+                _root_context=root if runtime_consumer_certificate is None else None,
             )
             for root in runtime_roots
         ]
@@ -10095,6 +10377,33 @@ def _python_inventory_entries(
         if not any("runtime-abort-posture=true" in part.splitlines() for part in parts):
             return ""
         return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+    def consumer_callback(key: str, consumer):
+        if runtime_consumer_proofs is None or (
+            runtime_consumer_keys is not None and key not in runtime_consumer_keys
+        ):
+            return None
+
+        def collect(requested, roots):
+            def build():
+                return runtime_consumer_identity(consumer, requested, roots)
+            proof = (
+                runtime_consumer_certificate.capture(("consumer", key), build)
+                if runtime_consumer_certificate is not None else build()
+            )
+            if key in runtime_consumer_proofs:
+                raise TestCorpusGuardError("duplicate runtime consumer evidence binding")
+            runtime_consumer_proofs[key] = proof
+            # Secondary proof metadata never changes canonical declaration refs.
+            return ""
+
+        return collect
+
+    def collapse_callback(key: str):
+        return (
+            (lambda: runtime_helper_collapses.add(key))
+            if runtime_helper_collapses is not None else None
+        )
 
     def bind_autouse_fixture_identity(ref: str) -> str:
         if autouse_fixture_identity is None:
@@ -10830,11 +11139,9 @@ def _python_inventory_entries(
                     normalize_non_aborting_runtime_helpers=(
                         normalize_non_aborting_runtime_helpers
                     ),
-                    runtime_consumer_identity=(
-                        lambda requested, helpers: runtime_consumer_identity(
-                            node, requested, helpers
-                        )
-                    ),
+                    runtime_consumer_identity=consumer_callback(f"{path}::{node.name}", node),
+                    runtime_consumer_certificate=runtime_consumer_certificate is not None,
+                    runtime_helper_collapse=collapse_callback(f"{path}::{node.name}"),
                 )
                 raw_ref = bind_autouse_fixture_identity(raw_ref)
                 entries.append(
@@ -10961,11 +11268,9 @@ def _python_inventory_entries(
                 normalize_non_aborting_runtime_helpers=(
                     normalize_non_aborting_runtime_helpers
                 ),
-                runtime_consumer_identity=(
-                    lambda requested, helpers: runtime_consumer_identity(
-                        method, requested, helpers
-                    )
-                ),
+                runtime_consumer_identity=consumer_callback(f"{path}::{node.name}::{method_name}", method),
+                runtime_consumer_certificate=runtime_consumer_certificate is not None,
+                runtime_helper_collapse=collapse_callback(f"{path}::{node.name}::{method_name}"),
             )
             raw_ref = bind_autouse_fixture_identity(raw_ref)
             entries.append(
@@ -14762,6 +15067,20 @@ def removed_declarations(
         "_uaa_local_python_module_counts",
         runtime_module_counts,
     )
+    base_consumer_certificate = _PythonConsumerCertificate(
+        base_import_source_resolver, base_import_source_resolver,
+        base_runtime_import_source_resolver,
+    )
+    current_consumer_certificate = _PythonConsumerCertificate(
+        worktree_import_source_resolver, base_import_source_resolver,
+        base_runtime_import_source_resolver,
+    )
+
+    def consumer_key(ref: str) -> str:
+        head, separator, occurrence = ref.partition("#")
+        key = head.split("::parametrize-sha256:", 1)[0].split("::autouse-sha256:", 1)[0]
+        return key + (separator + occurrence if separator else "")
+
     for path in changed_paths:
         prior = _base_text(repo, base_sha, path)
         if prior is None:
@@ -14802,6 +15121,30 @@ def removed_declarations(
             current_declarations = ()
             current_refs = set()
         path_removed = prior_refs - current_refs
+        required_consumer_keys: set[str] = set()
+        prior_consumer_facts: dict[str, str] = {}
+        current_consumer_facts: dict[str, str] = {}
+        if path.endswith(".py") and current_text is not None:
+            for text, resolver, runtime_resolver, certificate, facts, expected in (
+                (prior, base_import_source_resolver, base_runtime_import_source_resolver,
+                 base_consumer_certificate, prior_consumer_facts, prior_declarations),
+                (current_text, worktree_import_source_resolver, None,
+                 current_consumer_certificate, current_consumer_facts, current_declarations),
+            ):
+                represented = tuple(declaration for declaration, _source in _python_inventory_entries(
+                    path, text, resolver, runtime_import_source_resolver=runtime_resolver,
+                    runtime_consumer_proofs=facts, runtime_consumer_certificate=certificate,
+                ))
+                if tuple((consumer_key(item.ref), item.kind) for item in represented) != tuple(
+                    (consumer_key(item.ref), item.kind) for item in expected
+                ):
+                    raise TestCorpusGuardError("runtime consumer certificate changed declaration correspondence")
+            shared_keys = prior_consumer_facts.keys() & current_consumer_facts.keys()
+            required_consumer_keys.update(
+                key for key in shared_keys
+                if base_consumer_certificate.requires_proof(key)
+                or current_consumer_certificate.requires_proof(key)
+            )
         if (
             current_text is not None
             and python310_dependency_identity_migration_active
@@ -14853,6 +15196,8 @@ def removed_declarations(
                 ):
                     path_removed.discard(prior_declaration.ref)
         if path.endswith(".py") and current_text is not None and path_removed:
+            prior_collapses: set[str] = set()
+            current_collapses: set[str] = set()
             normalized_prior = tuple(
                 declaration
                 for declaration, _source in _python_inventory_entries(
@@ -14863,6 +15208,7 @@ def removed_declarations(
                         base_runtime_import_source_resolver
                     ),
                     normalize_non_aborting_runtime_helpers=True,
+                    runtime_helper_collapses=prior_collapses,
                 )
             )
             normalized_current = tuple(
@@ -14872,6 +15218,7 @@ def removed_declarations(
                     current_text,
                     worktree_import_source_resolver,
                     normalize_non_aborting_runtime_helpers=True,
+                    runtime_helper_collapses=current_collapses,
                 )
             )
             if len(normalized_prior) != len(prior_declarations) or len(
@@ -14881,14 +15228,37 @@ def removed_declarations(
                     "normalized Python test inventory is inconsistent"
                 )
             current_normalized_refs = {item.ref for item in normalized_current}
-            path_removed.difference_update(
+            normalized_equivalences = {
                 declaration.ref
                 for declaration, normalized in zip(
-                    prior_declarations,
-                    normalized_prior,
-                    strict=True,
+                    prior_declarations, normalized_prior, strict=True,
                 )
                 if normalized.ref in current_normalized_refs
+            }
+            required_consumer_keys.update(
+                consumer_key(ref) for ref in path_removed & normalized_equivalences
+                if consumer_key(ref) in prior_collapses | current_collapses
+            )
+            path_removed.difference_update(normalized_equivalences)
+        if required_consumer_keys:
+            prior_proofs: dict[str, str] = {}
+            current_proofs: dict[str, str] = {}
+            keys = frozenset(required_consumer_keys)
+            for text, resolver, runtime_resolver, proofs in (
+                (prior, base_import_source_resolver, base_runtime_import_source_resolver, prior_proofs),
+                (current_text, worktree_import_source_resolver, None, current_proofs),
+            ):
+                _python_inventory_entries(
+                    path, text, resolver, runtime_import_source_resolver=runtime_resolver,
+                    runtime_consumer_proofs=proofs, runtime_consumer_keys=keys,
+                )
+            if not keys.issubset(prior_proofs) or not keys.issubset(current_proofs):
+                raise TestCorpusGuardError("runtime consumer comparison proof is incomplete")
+            path_removed.update(
+                declaration.ref for declaration in prior_declarations
+                if consumer_key(declaration.ref) in keys
+                and prior_proofs[consumer_key(declaration.ref)]
+                != current_proofs[consumer_key(declaration.ref)]
             )
         removed.update(path_removed)
     for candidate, source in base_runtime_current_source_cache.items():

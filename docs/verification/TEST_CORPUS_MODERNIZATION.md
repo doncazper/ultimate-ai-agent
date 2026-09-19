@@ -78,8 +78,17 @@ ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
 guard's recognized static syntax and import forms.
 
 Collection neutrality does not prove that a returned value cannot activate a
-caller's existing skip branch. An abort-sensitive test, method, helper or fixture
-therefore binds its relevant dependency closure to the original revision, including
+caller's existing skip branch. Ordinary inventory retains its original declaration
+refs. A comparison must separately certify the source substitutions and helper
+normalizations that could affect each consumer, including consumers whose ordinary
+refs already match. The certificate retains represented source candidates and
+missing lookups through cached helpers, callbacks and fixtures. Unchanged exact
+represented inputs with no normalization effect can retain the ordinary ref; this
+is not a claim that the consumer cannot abort at runtime. Uncertainty within a
+potentially affected consumer requires strict proof rather than an empty certificate.
+
+When normalization could affect an abort-sensitive test, method, helper or fixture,
+strict evidence binds its dependency closure to the original revision, including
 separate value-producing arguments passed to an aborting helper. This strict
 consumer evidence includes passed abort capabilities and injected fixture
 dependencies, and survives the non-aborting-helper normalization retry. A harmless
@@ -89,7 +98,7 @@ The consumer proof uses the existing local and explicitly imported fixture graph
 Conftest and plugin discovery retain their separate existing checks.
 Module values, static members and explicit package namespaces retain their lexical
 import bindings. Competing import bindings that cannot be selected exactly refuse
-the comparison, including when source text is unchanged; one from-import's
+the required strict comparison; one from-import's
 module/member alternatives remain a single supported import specification.
 Relative and absolute from-imports of the same canonical member share that
 specification; different resolved members remain distinct.

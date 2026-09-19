@@ -2282,9 +2282,12 @@ def test_module_alias_does_not_resolve_an_absent_static_member(
         tmp_path, monkeypatch, test_source,
         current_subject="def runtime_value(): return 1\n", additions={},
     )
-    with pytest.raises(guard.TestCorpusGuardError, match="binding cannot be resolved"):
-        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
-        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    # No source substitution or helper collapse claims to resolve this member.
+    # The changed-source counterpart still requires an exact proof refusal.
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
 
 
 @pytest.mark.parametrize("explicit_child", [False, True], ids=["package", "explicit-child"])
@@ -2352,11 +2355,8 @@ def test_aliased_module_leaf_named_member_is_not_a_namespace_prefix(
             "def subject(): return None\n" if member == "changed" else base_subject
         ), additions={},
     )
-    if member == "absent":
-        with pytest.raises(guard.TestCorpusGuardError, match="binding cannot be resolved"):
-            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
-            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
-        return
+    # An unchanged absent member is not resolved by ordinary inventory;
+    # only a potentially affected consumer needs strict binding proof.
     inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
     removed = guard.removed_declarations(
         tmp_path, BASE_SHA, worktree_snapshot=inventory
@@ -2460,7 +2460,8 @@ def test_multiple_import_binding_epochs_retain_active_runtime_subject(
             "def runtime_value(): return 1\n"
         ), additions={},
     )
-    if ".decoy" in imports:
+    # An unchanged represented owner needs no runtime equivalence proof.
+    if ".decoy" in imports and changed:
         with pytest.raises(
             guard.TestCorpusGuardError,
             match="^ambiguous strict runtime import binding cannot be inventoried safely$",
@@ -2551,7 +2552,7 @@ def test_transitive_import_owner_keeps_ambiguity_within_referenced_scope(
             "def runtime_value(): return 1\n"
         ), additions={},
     )
-    if ambiguous:
+    if ambiguous and changed:
         with pytest.raises(
             guard.TestCorpusGuardError,
             match="^ambiguous strict runtime import binding cannot be inventoried safely$",
@@ -2597,12 +2598,18 @@ def test_local_mixed_namespace_alias_binding_is_explicitly_unsupported(
         current_subject=subject.replace("return 1", "return None", 1) if changed else subject,
         additions={},
     )
-    with pytest.raises(
-        guard.TestCorpusGuardError,
-        match="^ambiguous strict runtime import binding cannot be inventoried safely$",
-    ):
+    if changed:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^ambiguous strict runtime import binding cannot be inventoried safely$",
+        ):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    else:
         inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
-        guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
 
 
 @pytest.mark.parametrize("nested_class", [False, True], ids=["nested-function", "nested-class"])
@@ -2780,7 +2787,8 @@ def test_relative_absolute_imports_use_the_resolved_owner_source(
             "def runtime_value(): return 1\n"
         ), additions={},
     )
-    if different_source:
+    # Preserve the earlier ordinary lexical refusal for the local conditional.
+    if different_source and (changed or owner == "test-local"):
         reason = (
             "imported runtime helper dependency is ambiguous"
             if owner == "test-local" else
@@ -2799,3 +2807,267 @@ def test_relative_absolute_imports_use_the_resolved_owner_source(
         assert removed[0].startswith(f"{TEST_PATH}::test_case")
     else:
         assert removed == ()
+
+
+@pytest.mark.parametrize("attribute", ["__file__", "__name__"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_ordinary_inventory_does_not_require_unrelated_script_member_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    attribute: str, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "import scripts.tool as tool\n"
+        f"def test_metadata(): assert tool.{attribute}\n",
+        base_additions={
+            "scripts/__init__.py": "",
+            "scripts/tool.py": "def entry(): return 1\n",
+        },
+        current_subject="def runtime_value(): return None\n", additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path)
+    assert len(inventory.declarations) == 1
+    assert inventory.declarations[0].ref.startswith(f"{TEST_PATH}::test_metadata")
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory if snapshot else None
+    ) == ()
+
+
+@pytest.mark.parametrize("form", ["helper", "requested-fixture", "callback", "secondary-candidate"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_comparison_proof_tracks_each_cached_consumer_without_unrelated_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    form: str, changed: bool, snapshot: bool,
+) -> None:
+    support = {
+        "tests/__init__.py": "",
+        "scripts/__init__.py": "",
+        "scripts/tool.py": "def entry(): return 1\n",
+    }
+    producer_import = "from ultimate_ai_agent.subject import runtime_value\n"
+    prefix = "import scripts.tool as tool\n"
+    if form == "secondary-candidate":
+        support["src/ultimate_ai_agent/package/__init__.py"] = (
+            "from ultimate_ai_agent.subject import runtime_value as selected\n"
+            "def runtime_value(): return selected()\n"
+        )
+        support["src/ultimate_ai_agent/package/runtime_value.py"] = (
+            "def decoy(): return 9\n"
+        )
+        producer_import = "from ultimate_ai_agent.package import runtime_value\n"
+        prefix += (
+            "import ultimate_ai_agent.package.runtime_value as decoy_module\n"
+            "def test_decoy(): assert decoy_module.decoy() == 9\n"
+        )
+    body = (
+        "    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    return value\n"
+    )
+    if form == "requested-fixture":
+        support["tests/helpers.py"] = (
+            "import pytest\n" + producer_import
+            + "@pytest.fixture\ndef checked_value():\n" + body
+        )
+        prefix += "from tests.helpers import checked_value\n"
+        consumers = (
+            "def test_first(checked_value): assert checked_value == 1\n"
+            "def test_second(checked_value): assert checked_value == 1\n"
+        )
+    elif form == "callback":
+        prefix += (
+            "import pytest\n" + producer_import
+            + "def invoke(callback): return callback()\n"
+        )
+        consumers = ""
+        for name in ("first", "second"):
+            consumers += f"def test_{name}():\n    def callback():\n"
+            consumers += "".join("    " + line + "\n" for line in body.splitlines())
+            consumers += "    assert invoke(callback) == 1\n"
+    else:
+        support["tests/helpers.py"] = (
+            "import pytest\n" + producer_import
+            + "def require_value():\n" + body
+        )
+        prefix += "from tests.helpers import require_value\n"
+        consumers = (
+            "def test_first(): assert require_value() == 1\n"
+            "def test_second(): assert require_value() == 1\n"
+        )
+    _install_subject(
+        tmp_path, monkeypatch,
+        prefix + consumers + "def test_metadata(): assert tool.__file__\n",
+        base_additions=support,
+        current_subject=(
+            "def runtime_value(): return None\n" if changed else
+            "def runtime_value(): return 1\n"
+        ), additions={},
+    )
+    prior_refs: set[str] = set()
+    parse_prior = guard._parse_base_test_declarations
+
+    def capture_original_refs(*args, **kwargs):
+        declarations = parse_prior(*args, **kwargs)
+        prior_refs.update(item.ref for item in declarations)
+        return declarations
+
+    monkeypatch.setattr(guard, "_parse_base_test_declarations", capture_original_refs)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    assert set(removed) <= prior_refs
+    if changed:
+        assert len(removed) == 2
+        assert sum(ref.startswith(f"{TEST_PATH}::test_first") for ref in removed) == 1
+        assert sum(ref.startswith(f"{TEST_PATH}::test_second") for ref in removed) == 1
+    else:
+        assert removed == ()
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_changed_consumer_with_unresolved_member_cannot_reuse_equal_unknown_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "import pytest\nimport ultimate_ai_agent.subject as subject\n"
+        "def test_case():\n    value = subject.absent_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    assert value == 1\n",
+        current_subject="def runtime_value(): return None\n", additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path)
+    assert len(inventory.declarations) == 1
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="^imported Python parameter binding cannot be resolved safely$",
+    ):
+        guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory if snapshot else None
+        )
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_module_object_proof_retains_stable_alternative_wrapper_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "import pytest\nimport tests.helpers as owner\n"
+        "def consume(module):\n    value = module.require_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n    return value\n"
+        "def test_case(): assert consume(owner) == 1\n",
+        base_additions={
+            "tests/__init__.py": "",
+            "tests/helpers.py": (
+                "import ultimate_ai_agent.decoy as producer\n"
+                "import ultimate_ai_agent.active as producer\n"
+                "def require_value(): return producer.runtime_value()\n"
+            ),
+            "src/ultimate_ai_agent/decoy.py": "def runtime_value(): return 1\n",
+            "src/ultimate_ai_agent/active.py": (
+                "from ultimate_ai_agent.subject import runtime_value\n"
+            ),
+        },
+        current_subject="def runtime_value(): return None\n", additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    removed = guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    )
+    assert len(removed) == 1
+    assert removed[0].startswith(f"{TEST_PATH}::test_case")
+
+
+@pytest.mark.parametrize("over_budget", [False, True], ids=["within-budget", "over-budget"])
+def test_opaque_consumer_capture_enforces_existing_module_budget(
+    monkeypatch: pytest.MonkeyPatch, over_budget: bool,
+) -> None:
+    source = "import scripts.tool as tool\ndef test_metadata(): assert tool.__file__\n"
+    sources = {
+        TEST_PATH: source,
+        "tests/__init__.py": "",
+        "scripts/__init__.py": "",
+        "scripts/tool.py": "import scripts.chain0\n",
+    }
+    size = 12 if over_budget else 1
+    sources.update({
+        f"scripts/chain{index}.py": (
+            f"import scripts.chain{index + 1}\n" if index + 1 < size else "VALUE = 1\n"
+        )
+        for index in range(size)
+    })
+    resolver = guard._python_import_resolver(sources.get)
+    monkeypatch.setattr(guard, "MAX_PYTHON_DEPENDENCY_MODULES", 8)
+    ordinary = tuple(guard._python_inventory_entries(TEST_PATH, source, resolver))
+    assert len(ordinary) == 1
+    # This focused metadata entry point excludes the whole-repository census;
+    # its refusal must come from the opaque certificate's actual source walk.
+    certificate = guard._PythonConsumerCertificate(resolver, resolver, resolver)
+    proofs: dict[str, str] = {}
+    if over_budget:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^runtime consumer certificate exceeds module budget$",
+        ):
+            tuple(guard._python_inventory_entries(
+                TEST_PATH, source, resolver, runtime_consumer_proofs=proofs,
+                runtime_consumer_certificate=certificate,
+            ))
+    else:
+        represented = tuple(guard._python_inventory_entries(
+            TEST_PATH, source, resolver, runtime_consumer_proofs=proofs,
+            runtime_consumer_certificate=certificate,
+        ))
+        assert len(represented) == len(ordinary)
+        assert not certificate.requires_proof(f"{TEST_PATH}::test_metadata")
+
+
+def test_certificate_module_roots_share_source_and_import_edge_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    work_by_size: dict[int, int] = {}
+    import_modules = guard._python_import_modules
+    for size in (8, 16, 32):
+        modules = tuple(f"module_{index}" for index in range(size))
+        sources = {
+            f"{module}.py": (
+                f"import {modules[index + 1]}\nVALUE = 1\n"
+                if index + 1 < size else "VALUE = 1\n"
+            )
+            for index, module in enumerate(modules)
+        }
+        resolver = guard._python_import_resolver(sources.get)
+        certificate = guard._PythonConsumerCertificate(resolver, resolver, resolver)
+        source_visits = 0
+        edge_visits = 0
+        expanded_modules: set[str] = set()
+
+        def count_import_construction(tree, *, relative_package):
+            nonlocal source_visits, edge_visits
+            imports = import_modules(tree, relative_package=relative_package)
+            source_visits += 1
+            edge_visits += sum(len(candidates) for candidates in imports.values())
+            expanded_modules.add(relative_package)
+            return imports
+
+        with monkeypatch.context() as counted:
+            counted.setattr(guard, "_python_import_modules", count_import_construction)
+            for module in modules:
+                source = resolver(module)
+                assert source is not None
+                certificate.capture(
+                    ("consumer", module),
+                    lambda module=module, source=source: guard._python_module_dependency_identity(
+                        module, source, certificate.resolver
+                    ),
+                )
+            assert all(not certificate.requires_proof(module) for module in modules)
+        assert expanded_modules == set(modules)
+        work_by_size[size] = source_visits + edge_visits
+    # Count certificate source/edge construction only. Strict identity proofs
+    # have separate costs; no wall-clock or universal complexity claim is made.
+    assert all(work <= 4 * (size + size - 1) for size, work in work_by_size.items())
+    assert work_by_size[16] <= 2 * work_by_size[8] + 8
+    assert work_by_size[32] <= 2 * work_by_size[16] + 8
