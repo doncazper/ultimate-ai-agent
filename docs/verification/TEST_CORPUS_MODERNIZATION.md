@@ -72,6 +72,9 @@ getter-value escapes refuse admission. This stricter admission screen does not
 change the existing scope-sensitive test consumer's alias and rebinding rules.
 Alternate attribute-lookup capabilities must satisfy the same selector and use
 proof; a bound or unbound `__getattribute__` lookup cannot bypass that boundary.
+Builtin maps and dynamic namespace access retain their lookup capability through
+aliases and escapes; an unproved namespace selection cannot become an ordinary
+dependency merely because its getter is obtained indirectly.
 Import-time collection evidence also requires a positive effect proof, rather
 than only the absence of a recognized skip call. Executed object writes and
 opaque calls cannot disappear when a new dependency or changed existing module
@@ -96,6 +99,10 @@ missing lookups through cached helpers, callbacks and fixtures. Unchanged exact
 represented inputs with no normalization effect can retain the ordinary ref; this
 is not a claim that the consumer cannot abort at runtime. Uncertainty within a
 potentially affected consumer requires strict proof rather than an empty certificate.
+For an opaque imported binding, positively differing original source bytes may
+support conservative retirement evidence. This requires the binding's exact
+source owner and both revision observations; it cannot establish safe retention
+for an unchanged or unproven opaque source.
 
 When normalization could affect an abort-sensitive test, method, helper or fixture,
 strict evidence binds its dependency closure to the original revision, including
@@ -118,6 +125,9 @@ unproven call escapes, must retain their producer evidence or refuse the
 affected comparison. Capturing a mutable object is distinct from capturing a
 member value before a later write. An unchanged-input control does not prove
 that a changed producer is harmless.
+Executed writes or calls through an unresolved dynamic namespace address retain
+unknown-owner effects in the executing lexical scope. Missing a statically named
+receiver does not establish that a reached captured object was unaffected.
 The consumer proof uses the existing local and explicitly imported fixture graph.
 Conftest and plugin discovery retain their separate existing checks.
 Module values, static members and explicit package namespaces retain their lexical

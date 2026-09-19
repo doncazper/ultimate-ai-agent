@@ -5187,7 +5187,7 @@
     },
     {
       "path": "tests/test_test_corpus_guard_runtime_closure.py",
-      "seconds": 21.47,
+      "seconds": 22.64,
       "source": "pytest-duration-summary"
     }
   ],

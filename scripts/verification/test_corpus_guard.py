@@ -2671,6 +2671,128 @@ def _python_conservative_getattr_aliases(
     return {alias: "getattr" for alias in sorted(known)}
 
 
+def _python_dynamic_namespace_values(
+    nodes: tuple[ast.AST, ...],
+    imported_modules: dict[str, tuple[str, ...]],
+) -> frozenset[int]:
+    """Track possible namespace-derived addresses without interpreting keys.
+
+    Expression and alias edges are monotone: a later rebind cannot erase a
+    possible namespace escape. Call results, selected members and finite
+    containers retain that uncertainty rather than inventing an object owner.
+    Callers supply either the new-source tree or one executing lexical owner.
+    """
+
+    nodes = tuple({id(node): node for node in nodes}.values())
+    aliases: dict[str, set[str]] = {}
+    bindings: list[tuple[ast.AST, set[str]]] = []
+    namespaces = {"builtins": {"builtins"}, "sys": {"sys"}}
+    accessor_names = set(MODULE_NAMESPACE_ACCESSORS)
+    mapping_names = {"__builtins__"}
+    direct_namespace_aliases: set[int] = set()
+    for name, candidates in imported_modules.items():
+        for namespace in ("builtins", "sys"):
+            if candidates[:1] == (namespace,):
+                namespaces.setdefault(name, set()).add(namespace)
+        if any(f"builtins.{accessor}" in candidates for accessor in MODULE_NAMESPACE_ACCESSORS):
+            accessor_names.add(name)
+        if candidates[:1] == ("sys.modules",):
+            mapping_names.add(name)
+    for node in nodes:
+        if isinstance(node, ast.Import):
+            for imported in node.names:
+                if imported.name in {"builtins", "sys"}:
+                    namespaces.setdefault(imported.asname or imported.name, set()).add(imported.name)
+        elif isinstance(node, ast.ImportFrom):
+            for imported in node.names:
+                if node.level == 0 and node.module == "builtins" and imported.name in MODULE_NAMESPACE_ACCESSORS:
+                    accessor_names.add(imported.asname or imported.name)
+                elif node.level == 0 and node.module == "sys" and imported.name == "modules":
+                    mapping_names.add(imported.asname or imported.name)
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        names = {name for target in targets for name in _binding_target_names(target)}
+        bindings.append((node.value, names))
+        value = node.value
+        while isinstance(value, ast.NamedExpr):
+            value = value.value
+        if isinstance(value, ast.Name):
+            aliases.setdefault(value.id, set()).update(names)
+            if (
+                isinstance(node, (ast.Assign, ast.AnnAssign))
+                and node.value is value
+                and all(isinstance(target, ast.Name) for target in targets)
+            ):
+                direct_namespace_aliases.add(id(value))
+    pending_names = list(namespaces)
+    while pending_names:
+        source = pending_names.pop()
+        for target in aliases.get(source, ()):
+            namespace_kinds = namespaces.setdefault(target, set())
+            added = namespaces[source] - namespace_kinds
+            if added:
+                namespace_kinds.update(added)
+                pending_names.append(target)
+
+    edges: dict[tuple[str, int | str], set[tuple[str, int | str]]] = {}
+    known: set[tuple[str, int | str]] = set()
+
+    def link(source: tuple[str, int | str], target: tuple[str, int | str]) -> None:
+        edges.setdefault(source, set()).add(target)
+
+    parents = {
+        id(child): node for node in nodes for child in ast.iter_child_nodes(node)
+    }
+    seed_names = accessor_names | mapping_names
+    for node in nodes:
+        key = ("expression", id(node))
+        if isinstance(node, ast.Name):
+            link(("name", node.id), key)
+            if isinstance(node.ctx, ast.Load) and node.id in seed_names:
+                known.add(key)
+            elif (
+                isinstance(node.ctx, ast.Load)
+                and node.id in namespaces
+                and id(node) not in direct_namespace_aliases
+                and not (
+                    isinstance(parent := parents.get(id(node)), ast.Attribute)
+                    and parent.value is node
+                )
+            ):
+                # Direct declared namespace members and simple namespace aliases
+                # retain their existing grammar. Carrying the namespace itself
+                # through a value/container/call is an opaque address escape.
+                known.add(key)
+        if isinstance(node, ast.Attribute):
+            if node.attr in {"__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"}:
+                known.add(key)
+            value = node.value
+            while isinstance(value, ast.NamedExpr):
+                value = value.value
+            kinds = namespaces.get(value.id, set()) if isinstance(value, ast.Name) else set()
+            if ("builtins" in kinds and node.attr in MODULE_NAMESPACE_ACCESSORS) or (
+                "sys" in kinds and node.attr == "modules"
+            ):
+                known.add(key)
+        if not isinstance(node, (ast.stmt, ast.Module)):
+            # Unknown expression operations retain possible namespace values.
+            # Stop at statements/owners; binding edges below carry assignments
+            # explicitly instead of contaminating an entire lexical body.
+            for child in ast.iter_child_nodes(node):
+                link(("expression", id(child)), key)
+    for value, names in bindings:
+        for name in names:
+            link(("expression", id(value)), ("name", name))
+    pending = list(known)
+    while pending:
+        for target in edges.get(pending.pop(), ()):
+            if target not in known:
+                known.add(target)
+                pending.append(target)
+    return frozenset(value for kind, value in known if kind == "expression" and isinstance(value, int))
+
+
 def _python_new_getter_uses_are_unsafe(
     tree: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
@@ -2678,6 +2800,8 @@ def _python_new_getter_uses_are_unsafe(
     """Allow only proved selector calls and finite aliases in new subjects."""
 
     nodes = tuple(ast.walk(tree))
+    if _python_dynamic_namespace_values(nodes, imported_modules):
+        return True
     parents = {
         id(child): node for node in nodes for child in ast.iter_child_nodes(node)
     }
@@ -5547,6 +5671,7 @@ def _python_runtime_object_effects(
         return cache[key]
     body = [ast.Expr(value=scope.body)] if isinstance(scope, ast.Lambda) else scope.body
     parts = _module_collection_execution_nodes(ast.Module(body=body, type_ignores=[]))
+    namespace_values = _python_dynamic_namespace_values(parts, analysis.imported_modules)
     aliases: dict[str, set[str]] = {}
     effects: dict[str, list[ast.AST]] = {}
     mutable: set[str] = set()
@@ -5563,6 +5688,13 @@ def _python_runtime_object_effects(
             )
         )
         value = getattr(part, "value", None)
+        if id(part) in namespace_values:
+            # An empty name cannot be a Python binding. Keep one shared unknown
+            # owner entry rather than assigning a namespace key to a guessed
+            # local name or copying the event to every possible object. Any
+            # executed namespace-value escape needs proof; requiring a later
+            # recognized write would lose unknown callees and returned values.
+            effects.setdefault("", []).append(part)
         for target in targets:
             if isinstance(target, ast.Name) and isinstance(
                 value,
@@ -5669,6 +5801,25 @@ def _python_runtime_definition_context(
         expressions = _definition_time_nodes(node)
     else:
         expressions = (node,)
+    namespace_nodes = (
+        _scope_execution_nodes(node.body)
+        if callable_body and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        else tuple(child for expression in expressions for child in ast.walk(expression))
+    )
+    if _python_dynamic_namespace_values(
+        namespace_nodes,
+        analysis.imported_modules,
+    ):
+        raise TestCorpusGuardError(
+            "dynamic runtime namespace access cannot be inventoried safely"
+        )
+    if _python_runtime_object_effects(analysis, owner)[0].get(""):
+        # This is a context-level obligation, including literal mutable defaults
+        # with no loaded names. A dynamic call in this header also cannot be
+        # dismissed as merely part of the header's own source representation.
+        raise TestCorpusGuardError(
+            "definition-time object mutation cannot be inventoried safely"
+        )
     names = {
         child.id for expression in expressions for child in ast.walk(expression)
         if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
@@ -5823,6 +5974,10 @@ def _python_runtime_definition_context(
             object_effects, mutable_names = _python_runtime_object_effects(
                 analysis, scope
             )
+            if object_effects.get(""):
+                raise TestCorpusGuardError(
+                    "definition-time object mutation cannot be inventoried safely"
+                )
             effects = object_effects.get(name, ())
             if (
                 name in arguments - globals_ - nonlocals
@@ -5980,6 +6135,16 @@ def _python_binding_node_analysis(
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
             and (isinstance(node, ast.ClassDef) or child.name in referenced_names)
         )
+    if analysis.runtime_consumer:
+        namespace_nodes = (
+            scope_nodes
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+            else _scope_execution_nodes([node])
+        )
+        if _python_dynamic_namespace_values(namespace_nodes, imported_modules):
+            raise TestCorpusGuardError(
+                "dynamic runtime namespace access cannot be inventoried safely"
+            )
     imported_requirements = _python_import_requirements(node, imported_modules)
     for name in runtime_import_writes:
         imported_requirements.setdefault(name, set()).add(name)
@@ -6156,6 +6321,7 @@ def _python_imported_binding_source(
     _materialized: bool = True,
     _root_node: ast.AST | None = None,
     _root_context: _PythonRuntimeConsumerRoot | None = None,
+    _imported_dependency: bool = False,
 ) -> str:
     certificate = getattr(import_source_resolver, "_uaa_consumer_certificate", None)
     arguments = dict(
@@ -6163,9 +6329,46 @@ def _python_imported_binding_source(
         _materialized=_materialized, _root_node=_root_node, _root_context=_root_context,
     )
     def build():
-        return _python_imported_binding_source_impl(
-            module, source, binding_name, import_source_resolver, **arguments
-        )
+        try:
+            return _python_imported_binding_source_impl(
+                module, source, binding_name, import_source_resolver, **arguments
+            )
+        except TestCorpusGuardError as exc:
+            originals = getattr(import_source_resolver, "_uaa_original_source_resolvers", None)
+            if not (
+                str(exc) == "dynamic runtime namespace access cannot be inventoried safely"
+                and _imported_dependency and not _parameter_value
+                and _root_node is None and _root_context is None
+                and binding_name.isidentifier() and certificate is None
+                and getattr(import_source_resolver, "_uaa_runtime_consumer", False)
+                and originals is not None
+            ):
+                raise
+            owned_source, counterpart_source = (resolver(module) for resolver in originals)
+            if owned_source is None or owned_source != source:
+                raise TestCorpusGuardError(
+                    "runtime consumer original source binding is invalid"
+                ) from exc
+            if owned_source == counterpart_source:
+                raise
+            # This is changed original-source evidence, never equivalence of an
+            # opaque callable. Keep the oriented source witness outside the
+            # dependency digest so an unchanged selected AST cannot erase it.
+            witness = hashlib.sha256(owned_source.encode("utf-8")).hexdigest()
+            key = (module, binding_name, witness)
+            cache = getattr(import_source_resolver, "_uaa_namespace_binding_identity_cache")
+            if key not in cache:
+                complete = _python_module_dependency_identity(
+                    module, owned_source, import_source_resolver
+                )
+                cache[key] = (
+                    f"module={module}\nbinding={binding_name}\n"
+                    f"namespace-original-source-sha256={witness}\n"
+                    "namespace-module-closure-sha256="
+                    f"{hashlib.sha256(complete.encode('utf-8')).hexdigest()}\n"
+                    "runtime-abort-posture=true"
+                )
+            return cache[key]
     if certificate is None:
         return build()
     context = (
@@ -6398,6 +6601,7 @@ def _python_imported_binding_source_impl(
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                         _parameter_value=_parameter_value,
                         _materialized=_materialized,
+                        _imported_dependency=analysis.runtime_consumer,
                     )
                 )
             if analysis.runtime_consumer and import_source_resolver is not None:
@@ -6429,6 +6633,7 @@ def _python_imported_binding_source_impl(
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                         _parameter_value=_parameter_value,
                         _materialized=_materialized,
+                        _imported_dependency=analysis.runtime_consumer,
                     )
                 )
             if len(lazy_matches) == 1:
@@ -6454,6 +6659,7 @@ def _python_imported_binding_source_impl(
                             _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                             _parameter_value=_parameter_value,
                             _materialized=_materialized,
+                        _imported_dependency=analysis.runtime_consumer,
                         )
                     )
                 except TestCorpusGuardError as exc:
@@ -6634,6 +6840,7 @@ def _python_imported_binding_source_impl(
                         not _parameter_value
                         or name in invoked_imported_requirements.get(root, set())
                     ),
+                    _imported_dependency=analysis.runtime_consumer,
                 )
             )
     for name in sorted(star_import_requirements):
@@ -6654,6 +6861,7 @@ def _python_imported_binding_source_impl(
                         _seen_bindings=frozenset((*_seen_bindings, binding_key)),
                         _parameter_value=_parameter_value,
                         _materialized=_materialized,
+                        _imported_dependency=analysis.runtime_consumer,
                     )
                 )
             except TestCorpusGuardError as exc:
@@ -6899,11 +7107,23 @@ def _python_local_fixture_dependency_identity(
 
 def _python_runtime_consumer_resolver(
     source_resolver: Callable[[str], str | None],
+    *,
+    original_source_resolvers: tuple[
+        Callable[[str], str | None], Callable[[str], str | None]
+    ] | None = None,
 ) -> Callable[[str], str | None]:
     """Keep strict execution identities separate from parameter/runtime caches."""
 
-    cached = getattr(source_resolver, "_uaa_runtime_consumer_resolver", None)
+    if original_source_resolvers is not None and original_source_resolvers[0] is not source_resolver:
+        raise TestCorpusGuardError("runtime consumer original source binding is invalid")
+    resolver_cache_name = (
+        "_uaa_original_runtime_consumer_resolver"
+        if original_source_resolvers is not None else "_uaa_runtime_consumer_resolver"
+    )
+    cached = getattr(source_resolver, resolver_cache_name, None)
     if cached is not None:
+        if getattr(cached, "_uaa_original_source_resolvers", None) != original_source_resolvers:
+            raise TestCorpusGuardError("runtime consumer original source binding is invalid")
         return cached
 
     def resolve(module: str) -> str | None:
@@ -6919,13 +7139,16 @@ def _python_runtime_consumer_resolver(
         "_uaa_binding_module_analysis_cache",
         "_uaa_root_binding_identity_cache",
         "_uaa_autouse_fixture_cache",
+        "_uaa_namespace_binding_identity_cache",
     ):
         setattr(resolve, cache_name, {})
     setattr(resolve, "_uaa_runtime_consumer", True)
+    if original_source_resolvers is not None:
+        setattr(resolve, "_uaa_original_source_resolvers", original_source_resolvers)
     module_counts = getattr(source_resolver, "_uaa_local_python_module_counts", None)
     if module_counts is not None:
         setattr(resolve, "_uaa_local_python_module_counts", module_counts)
-    setattr(source_resolver, "_uaa_runtime_consumer_resolver", resolve)
+    setattr(source_resolver, resolver_cache_name, resolve)
     return resolve
 
 
@@ -10337,6 +10560,9 @@ def _python_inventory_entries(
     runtime_consumer_certificate: _PythonConsumerCertificate | None = None,
     runtime_consumer_keys: frozenset[str] | None = None,
     runtime_helper_collapses: set[str] | None = None,
+    runtime_consumer_original_sources: tuple[
+        Callable[[str], str | None], Callable[[str], str | None]
+    ] | None = None,
 ) -> tuple[tuple[TestDeclaration, str], ...]:
     try:
         tree = ast.parse(text, filename=path)
@@ -11364,7 +11590,10 @@ def _python_inventory_entries(
     strict_consumer_resolver = (
         runtime_consumer_certificate.resolver
         if runtime_consumer_certificate is not None
-        else _python_runtime_consumer_resolver(import_source_resolver)
+        else _python_runtime_consumer_resolver(
+            import_source_resolver,
+            original_source_resolvers=runtime_consumer_original_sources,
+        )
         if import_source_resolver is not None and runtime_consumer_proofs is not None
         else None
     )
@@ -16326,6 +16555,11 @@ def removed_declarations(
                 _python_inventory_entries(
                     path, text, resolver, runtime_import_source_resolver=runtime_resolver,
                     runtime_consumer_proofs=proofs, runtime_consumer_keys=keys,
+                    runtime_consumer_original_sources=(
+                        resolver,
+                        worktree_import_source_resolver
+                        if resolver is base_import_source_resolver else base_import_source_resolver,
+                    ),
                 )
             if not keys.issubset(prior_proofs) or not keys.issubset(current_proofs):
                 raise TestCorpusGuardError("runtime consumer comparison proof is incomplete")

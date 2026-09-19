@@ -4273,3 +4273,470 @@ def test_try_clause_binding_changes_cannot_reuse_prior_sequence_shape(
         assert guard.removed_declarations(
             tmp_path, BASE_SHA, worktree_snapshot=inventory
         ) == ()
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_dynamic_global_registry_default_cannot_erase_changed_producer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool
+) -> None:
+    source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "registry = []\n"
+        "globals()['registry'].append(runtime_value)\n"
+        "def helper(fn=registry[0]): return fn()\n"
+        "def test_case():\n"
+        "    value = helper()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        additions={CHILD_PATH: "def runtime_value(): return None\n"},
+    )
+    _assert_changed_consumer_is_retained_or_exactly_refused(
+        tmp_path, snapshot, "definition-time object mutation cannot be inventoried safely"
+    )
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_implicit_builtins_mapping_cannot_hide_new_dependency_skip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool
+) -> None:
+    source = (
+        "import unittest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "class TestCase(unittest.TestCase):\n"
+        "    def test_retained(self): assert runtime_value(self) == 1\n"
+    )
+    child = (
+        "def runtime_value(case):\n"
+        "    __builtins__['getattr'](case, 'skipTest')('unavailable')\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        base_subject="def runtime_value(case): return 1\n",
+        additions={CHILD_PATH: child},
+    )
+    try:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        removed = guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    except guard.TestCorpusGuardError as error:
+        assert str(error) == "dynamic runtime namespace access cannot be inventoried safely"
+    else:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": "def runtime_value(case): return 1\n"},
+        {
+            "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+            "ultimate_ai_agent.new_child": child,
+        },
+        ("ultimate_ai_agent.subject",),
+    ) == {}
+
+
+
+@pytest.mark.parametrize(
+    "form",
+    ["globals-alias", "locals", "vars", "container-receiver", "subscript-write", "mutator-alias", "selected-alias"],
+)
+@pytest.mark.parametrize("topology", ["unchanged", "existing", "child"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_dynamic_namespace_mutation_retains_definition_owner_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    form: str, topology: str, snapshot: bool,
+) -> None:
+    initialization = "registry = []\n"
+    if form == "globals-alias":
+        effect = "namespace = globals()\nnamespace['registry'].append(runtime_value)\n"
+    elif form == "locals":
+        effect = "locals()['registry'].append(runtime_value)\n"
+    elif form == "vars":
+        effect = "vars()['registry'].append(runtime_value)\n"
+    elif form == "container-receiver":
+        effect = "[globals()][0]['registry'].append(runtime_value)\n"
+    elif form == "subscript-write":
+        initialization = "registry = [lambda: 1]\n"
+        effect = "globals()['registry'][0] = runtime_value\n"
+    elif form == "mutator-alias":
+        effect = "mutate = globals()['registry'].append\nmutate(runtime_value)\n"
+    else:
+        effect = "selected = globals()['registry']\nselected.append(runtime_value)\n"
+    source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        + initialization + effect
+        + "def helper(fn=registry[0]): return fn()\n"
+        "def test_case():\n"
+        "    value = helper()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    current_subject = "def runtime_value(): return 1\n"
+    additions = {}
+    if topology == "existing":
+        current_subject = "def runtime_value(): return None\n"
+    elif topology == "child":
+        current_subject = "from ultimate_ai_agent.new_child import runtime_value\n"
+        additions = {CHILD_PATH: "def runtime_value(): return None\n"}
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        current_subject=current_subject, additions=additions,
+    )
+    if form == "globals-alias":
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^indirect Python test-name rebinding cannot be inventoried safely$",
+        ):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    elif topology == "unchanged":
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
+    else:
+        _assert_changed_consumer_is_retained_or_exactly_refused(
+            tmp_path, snapshot, "definition-time object mutation cannot be inventoried safely"
+        )
+
+
+@pytest.mark.parametrize("reached", [False, True], ids=["dormant-independent", "nested-reached"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_dynamic_namespace_effect_keeps_its_represented_lexical_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    reached: bool, changed: bool, snapshot: bool,
+) -> None:
+    if reached:
+        declarations = (
+            "def outer():\n"
+            "    registry = []\n"
+            "    locals()['registry'].append(runtime_value)\n"
+            "    def helper(fn=registry[0]): return fn()\n"
+            "    return helper()\n"
+        )
+        expression = "outer()"
+    else:
+        declarations = (
+            "registry = [lambda: 1]\n"
+            "def dormant():\n"
+            "    globals()['registry'].append(runtime_value)\n"
+            "def helper(fn=registry[0]): return fn()\n"
+        )
+        expression = "helper()"
+    source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        + declarations
+        + f"def test_case():\n    value = {expression}\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        current_subject=("def runtime_value(): return None\n" if changed else "def runtime_value(): return 1\n"),
+        additions={},
+    )
+    if reached and changed:
+        _assert_changed_consumer_is_retained_or_exactly_refused(
+            tmp_path, snapshot, "dynamic runtime namespace access cannot be inventoried safely"
+        )
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        "def runtime_value(case):\n    namespace = __builtins__\n    namespace['getattr'](case, 'skipTest')('unavailable')\n",
+        "def runtime_value(case):\n    (namespace := __builtins__)['getattr'](case, 'skipTest')('unavailable')\n",
+        "def runtime_value(case):\n    {'namespace': __builtins__}['namespace']['getattr'](case, 'skipTest')('unavailable')\n",
+        "def runtime_value(case):\n    __builtins__.get('getattr')(case, 'skipTest')('unavailable')\n",
+        "def runtime_value(case):\n    __builtins__.__getitem__('getattr')(case, 'skipTest')('unavailable')\n",
+        "def invoke(lookup, case): lookup(case, 'skipTest')('unavailable')\ndef runtime_value(case): invoke(__builtins__['getattr'], case)\n",
+        "import builtins\ndef runtime_value(case): vars(builtins)['getattr'](case, 'skipTest')('unavailable')\n",
+        "import builtins\ndef runtime_value(case): builtins.__dict__['getattr'](case, 'skipTest')('unavailable')\n",
+    ],
+    ids=["namespace-alias", "namedexpr", "container", "mapping-get", "mapping-getitem", "getter-callback", "namespace-vars", "namespace-dict"],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_opaque_builtin_namespace_lookup_cannot_hide_skip_or_be_admitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    child: str, nested: bool, snapshot: bool,
+) -> None:
+    source = (
+        "import unittest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "class TestCase(unittest.TestCase):\n"
+        "    def test_retained(self): assert runtime_value(self) == 1\n"
+    )
+    additions = {CHILD_PATH: child}
+    if nested:
+        additions = {
+            CHILD_PATH: "from ultimate_ai_agent.new_grandchild import runtime_value\n",
+            GRANDCHILD_PATH: child,
+        }
+    baseline = "def runtime_value(case): return 1\n"
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        base_subject=baseline, additions=additions,
+    )
+    try:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        removed = guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    except guard.TestCorpusGuardError as error:
+        assert str(error) == "dynamic runtime namespace access cannot be inventoried safely"
+    else:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{TEST_PATH}::TestCase::test_retained")
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": additions[CHILD_PATH],
+    }
+    if nested:
+        current["ultimate_ai_agent.new_grandchild"] = child
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": baseline}, current,
+        ("ultimate_ai_agent.subject",),
+    ) == {}
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_unchanged_opaque_builtin_namespace_source_preserves_ordinary_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool
+) -> None:
+    source = (
+        "import unittest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "class TestCase(unittest.TestCase):\n"
+        "    def test_retained(self): assert runtime_value(self) == 1\n"
+    )
+    child = "def runtime_value(case): __builtins__['getattr'](case, 'skipTest')('unavailable')\n"
+    reexport = "from ultimate_ai_agent.new_child import runtime_value\n"
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        base_subject=reexport, current_subject=reexport,
+        base_additions={CHILD_PATH: child}, additions={},
+    )
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_ordinary_literal_lookup_mapping_is_actually_admitted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool
+) -> None:
+    child = "def runtime_value():\n    namespace = {'value': 1}\n    return namespace['value']\n"
+    _install_subject(tmp_path, monkeypatch, DIRECT_TEST, additions={CHILD_PATH: child})
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+    _assert_harmless_runtime_subject_admitted(child, False)
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_dynamic_namespace_mutation_reaches_anonymous_mutable_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed: bool, snapshot: bool
+) -> None:
+    source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def helper(fn=[]): return fn[0]()\n"
+        "globals()['helper'].__defaults__[0].append(runtime_value)\n"
+        "def test_case():\n"
+        "    value = helper()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        current_subject=(
+            "from ultimate_ai_agent.new_child import runtime_value\n"
+            if changed else "def runtime_value(): return 1\n"
+        ),
+        additions={CHILD_PATH: "def runtime_value(): return None\n"} if changed else {},
+    )
+    if changed:
+        _assert_changed_consumer_is_retained_or_exactly_refused(
+            tmp_path, snapshot, "definition-time object mutation cannot be inventoried safely"
+        )
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
+
+
+@pytest.mark.parametrize("carrier", ["[builtins][0]", "builtins if flag else builtins", "builtins or fallback"], ids=["container", "conditional", "boolean"])
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_carried_builtin_module_namespace_retains_definition_owner_effect(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, carrier: str, changed: bool, snapshot: bool
+) -> None:
+    bindings = "" if carrier == "[builtins][0]" else "flag = True\nfallback = None\n"
+    source = (
+        "import builtins\n"
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "registry = []\n"
+        + bindings
+        + f"namespace = {carrier}\n"
+        "namespace.globals()['registry'].append(runtime_value)\n"
+        "def helper(fn=registry[0]): return fn()\n"
+        "def test_case():\n"
+        "    value = helper()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        current_subject=(
+            "from ultimate_ai_agent.new_child import runtime_value\n"
+            if changed else "def runtime_value(): return 1\n"
+        ),
+        additions={CHILD_PATH: "def runtime_value(): return None\n"} if changed else {},
+    )
+    if changed:
+        _assert_changed_consumer_is_retained_or_exactly_refused(
+            tmp_path, snapshot, "definition-time object mutation cannot be inventoried safely"
+        )
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
+
+
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_returned_builtin_namespace_retains_reached_default_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, changed: bool, snapshot: bool
+) -> None:
+    source = (
+        "import builtins\n"
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "registry = []\n"
+        "def namespace_factory(): return builtins\n"
+        "namespace = namespace_factory()\n"
+        "namespace.globals()['registry'].append(runtime_value)\n"
+        "def helper(fn=registry[0]): return fn()\n"
+        "def test_case():\n"
+        "    value = helper()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        current_subject=(
+            "from ultimate_ai_agent.new_child import runtime_value\n"
+            if changed else "def runtime_value(): return 1\n"
+        ),
+        additions={CHILD_PATH: "def runtime_value(): return None\n"} if changed else {},
+    )
+    if changed:
+        _assert_changed_consumer_is_retained_or_exactly_refused(
+            tmp_path, snapshot, "definition-time object mutation cannot be inventoried safely"
+        )
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        ) == ()
+
+
+@pytest.mark.parametrize("subject_changed", [False, True], ids=["same-subject", "different-subject"])
+@pytest.mark.parametrize("producer_changed", [False, True], ids=["same-producer", "changed-producer"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_opaque_application_source_witness_preserves_original_revision_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    subject_changed: bool, producer_changed: bool, snapshot: bool,
+) -> None:
+    source = (
+        "import pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case():\n"
+        "    value = runtime_value()\n"
+        "    if value is None: pytest.skip('unavailable')\n"
+        "    assert value == 1\n"
+    )
+    body = (
+        "from ultimate_ai_agent.producer import produce\n"
+        "def runtime_value(): return globals()['produce']()\n"
+    )
+    base_subject = "METADATA = 1\n" + body
+    current_subject = ("METADATA = 2\n" if subject_changed else "METADATA = 1\n") + body
+    producer_path = "src/ultimate_ai_agent/producer.py"
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        base_subject=base_subject, current_subject=current_subject,
+        base_additions={producer_path: "def produce(): return 1\n"},
+        additions={producer_path: "def produce(): return None\n"} if producer_changed else {},
+    )
+    if producer_changed and not subject_changed:
+        with pytest.raises(
+            guard.TestCorpusGuardError,
+            match="^dynamic runtime namespace access cannot be inventoried safely$",
+        ):
+            inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+            guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        removed = guard.removed_declarations(
+            tmp_path, BASE_SHA, worktree_snapshot=inventory
+        )
+        assert len(removed) == (1 if subject_changed else 0)
+        if subject_changed:
+            assert removed[0].split("::")[:2] == [TEST_PATH, "test_case"]
+
+
+@pytest.mark.parametrize("invalid_binding", ["wrong-owner", "changed-counterpart"])
+def test_runtime_consumer_original_source_pair_cannot_cross_owners(
+    invalid_binding: str,
+) -> None:
+    module = "ultimate_ai_agent.subject"
+    source_path = "src/ultimate_ai_agent/subject.py"
+    original = "def runtime_value(): return 1\n"
+    changed = "def runtime_value(): return None\n"
+    owner = guard._python_import_resolver({source_path: original}.get)
+    counterpart = guard._python_import_resolver({source_path: changed}.get)
+    other_counterpart = guard._python_import_resolver({source_path: changed}.get)
+    original_read = owner(module)
+    changed_read = counterpart(module)
+    assert original_read is not None
+    assert changed_read is not None
+    assert original_read != changed_read
+    ordinary = guard._python_runtime_consumer_resolver(owner)
+    paired = guard._python_runtime_consumer_resolver(
+        owner, original_source_resolvers=(owner, counterpart)
+    )
+    assert ordinary(module) == original_read
+    assert paired(module) == original_read
+    assert counterpart(module) == changed_read
+
+    with pytest.raises(
+        guard.TestCorpusGuardError,
+        match="^runtime consumer original source binding is invalid$",
+    ):
+        if invalid_binding == "wrong-owner":
+            guard._python_runtime_consumer_resolver(
+                owner, original_source_resolvers=(counterpart, owner)
+            )
+        else:
+            guard._python_runtime_consumer_resolver(
+                owner, original_source_resolvers=(owner, other_counterpart)
+            )
+
+    assert ordinary(module) == original_read
+    assert paired(module) == original_read
+    assert counterpart(module) == changed_read
