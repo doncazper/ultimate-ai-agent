@@ -77,7 +77,17 @@ aliases and escapes; an unproved namespace selection cannot become an ordinary
 dependency merely because its getter is obtained indirectly.
 Dynamically obtained namespaces, code-execution callables, and dynamic fixture
 activation use the same conservative capability boundary, including aliases,
-escaped values, and reflected selectors. Capability names belong to their
+escaped values, and reflected selectors.
+Direct and reflected namespace-property selection share the same classification;
+importer module aliases retain provenance through the namespace alias graph.
+Dynamic target discovery and runtime capability checks share that alias
+provenance. Runtime checks select source-owned facts for the reached execution
+slice, so a module-level alias cannot disappear at a callable boundary.
+Wildcard import sources refuse admission because their absent or unrepresented
+exports cannot prove that a loaded name lacks an execution capability.
+Strict consumers likewise refuse unresolved wildcard sources when their loaded
+names require those exports; missing source is not inert evidence.
+Capability names belong to their
 lexical binding owners: a formal or local identifier does not acquire builtin
 authority from its spelling, while definition inputs retain their enclosing
 owner and a shadowed sibling does not erase an actual capability elsewhere.

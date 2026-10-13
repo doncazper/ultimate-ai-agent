@@ -3046,12 +3046,15 @@ def test_certificate_module_roots_share_source_and_import_edge_construction(
         edge_visits = 0
         expanded_modules: set[str] = set()
 
-        def count_import_construction(tree, *, relative_package):
+        def count_import_construction(tree, *, relative_package=None):
             nonlocal source_visits, edge_visits
             imports = import_modules(tree, relative_package=relative_package)
             source_visits += 1
             edge_visits += sum(len(candidates) for candidates in imports.values())
-            expanded_modules.add(relative_package)
+            # Lexical projection also classifies individual import nodes.
+            # Count that work, but only full-module calls own package roots.
+            if relative_package is not None:
+                expanded_modules.add(relative_package)
             return imports
 
         with monkeypatch.context() as counted:
@@ -5140,3 +5143,141 @@ def test_unknown_dynamic_import_target_remains_refused(loader: str) -> None:
         },
         ("ultimate_ai_agent.subject",),
     ) == {}
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param(
+            "def runtime_value(case):\n"
+            "    return getattr(lambda: None, '__builtins__')['eval'](\"case.skipTest('unavailable')\")\n",
+            id="reflected-function-builtins",
+        ),
+        pytest.param(
+            "def runtime_value(case):\n"
+            "    return getattr(lambda: None, '__globals__')['__builtins__']['eval'](\"case.skipTest('unavailable')\")\n",
+            id="reflected-function-globals",
+        ),
+        pytest.param(
+            "def runtime_value(case):\n"
+            "    return getattr(lambda: None, '__built' + 'ins__')['eval'](\"case.skipTest('unavailable')\")\n",
+            id="reflected-concatenated-namespace",
+        ),
+        pytest.param(
+            "import importlib\nloader = importlib\n"
+            "def runtime_value(case):\n"
+            "    return loader.import_module('builtins').eval(\"case.skipTest('unavailable')\")\n",
+            id="importlib-module-alias",
+        ),
+        pytest.param(
+            "import importlib as source\nloader = source\nlast = loader\n"
+            "def runtime_value(case):\n"
+            "    return last.import_module('builtins').eval(\"case.skipTest('unavailable')\")\n",
+            id="importlib-chained-module-alias",
+        ),
+        pytest.param(
+            "import importlib\n"
+            "def runtime_value(case):\n"
+            "    loader = importlib\n"
+            "    return loader.import_module('builtins').eval(\"case.skipTest('unavailable')\")\n",
+            id="importlib-function-local-alias",
+        ),
+        pytest.param(
+            "import importlib\nlibrary = importlib\n"
+            "def runtime_value(case):\n"
+            "    library.import_module('pytest').skip('unavailable')\n",
+            id="importlib-module-alias-test-framework",
+        ),
+        pytest.param(
+            "from operator import *\n"
+            "def runtime_value(case): return attrgetter('skipTest')(case)('unavailable')\n",
+            id="wildcard-attrgetter",
+        ),
+        pytest.param(
+            "from operator import *\n"
+            "def runtime_value(case): return methodcaller('skipTest', 'unavailable')(case)\n",
+            id="wildcard-methodcaller",
+        ),
+        pytest.param(
+            "from builtins import *\n"
+            "def runtime_value(case): return eval(\"case.skipTest('unavailable')\")\n",
+            id="wildcard-executor",
+        ),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_reviewed_namespace_and_wildcard_gaps_preserve_retained_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    child: str, nested: bool, snapshot: bool,
+) -> None:
+    baseline = "def runtime_value(case): return 1\n"
+    additions = {CHILD_PATH: child}
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": child,
+    }
+    if nested:
+        additions[CHILD_PATH] = "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        additions[GRANDCHILD_PATH] = child
+        current["ultimate_ai_agent.new_child"] = additions[CHILD_PATH]
+        current["ultimate_ai_agent.new_grandchild"] = child
+    _install_subject(
+        tmp_path, monkeypatch, _capability_review_consumer_source(False),
+        base_subject=baseline, additions=additions,
+    )
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": baseline}, current,
+        ("ultimate_ai_agent.subject",),
+    ) == {}
+    _assert_capability_review_retirement(tmp_path, snapshot, False)
+
+
+@pytest.mark.parametrize(
+    "selector", ["__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"]
+)
+def test_reflected_runtime_namespace_selectors_share_direct_property_boundary(
+    selector: str,
+) -> None:
+    reflected = f"def runtime_value(value): return getattr(value, {selector!r})\n"
+    direct = f"def runtime_value(value): return value.{selector}\n"
+    for child in (reflected, direct):
+        assert _admit_source_graph(
+            {"ultimate_ai_agent.subject": "def runtime_value(value): return 1\n"},
+            {
+                "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+                "ultimate_ai_agent.new_child": child,
+            },
+            ("ultimate_ai_agent.subject",),
+        ) == {}
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        "import importlib\nloader = importlib\n"
+        "def runtime_value(case): return loader.import_module('math').floor(1.2)\n",
+        "from operator import getitem\n"
+        "def runtime_value(case): return getitem([1], 0)\n",
+        "def runtime_value(case): return getattr(case, 'value', 1)\n",
+    ],
+    ids=["ordinary-importer-alias", "explicit-operator-getitem", "ordinary-getattr"],
+)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_namespace_repair_preserves_proven_ordinary_runtime_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child: str, snapshot: bool,
+) -> None:
+    source = (
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value(None) == 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch, source,
+        base_subject="def runtime_value(case): return 1\n",
+        additions={CHILD_PATH: child},
+    )
+    _assert_harmless_runtime_subject_admitted(child, False)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()

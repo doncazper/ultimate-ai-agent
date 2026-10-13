@@ -457,6 +457,10 @@ GLOBALS_NAMESPACE_MUTATOR_METHODS = {
     "update",
 }
 MODULE_NAMESPACE_ACCESSORS = frozenset({"globals", "locals", "vars"})
+PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES = frozenset(
+    {"__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"}
+)
+PYTHON_RUNTIME_ABORT_MODULES = frozenset({"pytest", "_pytest", "unittest"})
 GLOBAL_NAMESPACE_ACCESSORS = frozenset({"globals"})
 LOCAL_NAMESPACE_ACCESSORS = frozenset({"locals", "vars"})
 READ_ONLY_COLLECTION_METHODS = {
@@ -2061,6 +2065,24 @@ def _has_pytest_collection_hook_spec(source: str, path: str) -> bool:
     return False
 
 
+def _python_propagated_namespace_aliases(
+    namespaces: dict[str, set[str]], aliases: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    """Retain every possible namespace kind through owner-qualified aliases."""
+
+    namespaces = {name: set(kinds) for name, kinds in namespaces.items()}
+    pending = list(namespaces)
+    while pending:
+        source = pending.pop()
+        for target in aliases.get(source, ()):
+            kinds = namespaces.setdefault(target, set())
+            added = namespaces[source] - kinds
+            if added:
+                kinds.update(added)
+                pending.append(target)
+    return namespaces
+
+
 def _dynamic_python_import_modules(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
@@ -2070,6 +2092,29 @@ def _dynamic_python_import_modules(
 ) -> tuple[str, ...]:
     """Resolve bounded dynamic imports or reject their dependency posture."""
 
+    projected, imported_modules = _python_capability_projection(tree, imported_modules)
+    tree = projected[id(tree)]
+    assignments: list[tuple[str, ast.AST]] = []
+    namespace_aliases: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) or node.value is None:
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+        for target in targets:
+            for name, value in _paired_binding_values(target, node.value):
+                assignments.append((name, value))
+                while isinstance(value, ast.NamedExpr):
+                    value = value.value
+                if isinstance(value, ast.Name):
+                    namespace_aliases.setdefault(value.id, set()).add(name)
+    importer_namespaces = _python_propagated_namespace_aliases(
+        {
+            name: {kind for kind in ("builtins", "importlib") if kind in candidates}
+            for name, candidates in imported_modules.items()
+            if {"builtins", "importlib"}.intersection(candidates)
+        },
+        namespace_aliases,
+    )
     dynamic_import_aliases = {"__import__": "builtin"}
     dynamic_import_aliases.update(
         {
@@ -2089,14 +2134,14 @@ def _dynamic_python_import_modules(
             isinstance(node, ast.Attribute)
             and node.attr == "import_module"
             and (root := _root_name(node)) is not None
-            and "importlib" in imported_modules.get(root, ())
+            and "importlib" in importer_namespaces.get(root, ())
         ):
             return "import_module"
         if (
             isinstance(node, ast.Attribute)
             and node.attr == "__import__"
             and (root := _root_name(node)) is not None
-            and "builtins" in imported_modules.get(root, ())
+            and "builtins" in importer_namespaces.get(root, ())
         ):
             return "builtin"
         return None
@@ -2123,22 +2168,6 @@ def _dynamic_python_import_modules(
         suffix = target[leading_dots:]
         return f"{prefix}.{suffix}" if suffix else prefix
 
-    assignments: list[tuple[str, ast.AST]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            targets = node.targets
-            value = node.value
-        elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            targets = (node.target,)
-            value = node.value
-        elif isinstance(node, ast.NamedExpr):
-            targets = (node.target,)
-            value = node.value
-        else:
-            continue
-        assignments.extend(
-            pair for target in targets for pair in _paired_binding_values(target, value)
-        )
     while True:
         added = {
             name: kind
@@ -2563,7 +2592,8 @@ def _python_new_getter_selection_is_unsafe(
     # at most the target's length: long constant expressions remain known-safe
     # without repeatedly materializing ever larger concatenated strings.
     unsafe_selectors = {
-        "skipTest", "__getattribute__", "__getattr__", "__dict__",
+        *PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES,
+        "skipTest", "__getattribute__", "__getattr__",
         "exec", "eval", "getfixturevalue",
     }
     selector_limit = max(map(len, unsafe_selectors))
@@ -2925,7 +2955,16 @@ def _python_dynamic_namespace_values(
     nodes = tuple(node for node in nodes if not (isinstance(node, ast.Expr) and id(node) not in projected and id(node.value) in projected))
     if any(id(node) not in projected for node in nodes):
         raise TestCorpusGuardError("dynamic runtime namespace access cannot be inventoried safely")
-    values = _python_dynamic_namespace_values_projected(tuple(projected[id(node)] for node in nodes), imports)
+    # Alias facts belong to the source, not whichever execution slice first
+    # asks for them. Intersect the cached graph with this slice only afterward;
+    # unrelated dormant owners must not become execution evidence.
+    projected_source = projected[id(getattr(source, "_uaa_capability_source", source))]
+    values = getattr(projected_source, "_uaa_dynamic_namespace_values", None)
+    if values is None:
+        values = _python_dynamic_namespace_values_projected(
+            tuple(ast.walk(projected_source)), imports
+        )
+        setattr(projected_source, "_uaa_dynamic_namespace_values", values)
     return frozenset(id(node) for node in nodes if id(projected[id(node)]) in values)
 
 
@@ -2946,16 +2985,13 @@ def _python_dynamic_namespace_values_projected(
     bindings: list[tuple[ast.AST, set[str]]] = []
     namespaces = {"builtins": {"builtins"}, "sys": {"sys"}}
     importers = {"__import__"}
-    importlib_namespaces: set[str] = set()
     accessor_names = set(MODULE_NAMESPACE_ACCESSORS)
     mapping_names = {"__builtins__"}
     direct_namespace_aliases: set[int] = set()
     for name, candidates in imported_modules.items():
         if {"builtins.__import__", "importlib.import_module"}.intersection(candidates):
             importers.add(name)
-        if candidates[:1] == ("importlib",):
-            importlib_namespaces.add(name)
-        for namespace in ("builtins", "sys"):
+        for namespace in ("builtins", "sys", "importlib"):
             if candidates[:1] == (namespace,):
                 namespaces.setdefault(name, set()).add(namespace)
         if any(f"builtins.{accessor}" in candidates for accessor in MODULE_NAMESPACE_ACCESSORS):
@@ -2965,7 +3001,7 @@ def _python_dynamic_namespace_values_projected(
     for node in nodes:
         if isinstance(node, ast.Import):
             for imported in node.names:
-                if imported.name in {"builtins", "sys"}:
+                if imported.name in {"builtins", "sys", "importlib"}:
                     namespaces.setdefault(imported.asname or imported.name, set()).add(imported.name)
         elif isinstance(node, ast.ImportFrom):
             for imported in node.names:
@@ -2989,15 +3025,7 @@ def _python_dynamic_namespace_values_projected(
                 and all(isinstance(target, ast.Name) for target in targets)
             ):
                 direct_namespace_aliases.add(id(value))
-    pending_names = list(namespaces)
-    while pending_names:
-        source = pending_names.pop()
-        for target in aliases.get(source, ()):
-            namespace_kinds = namespaces.setdefault(target, set())
-            added = namespaces[source] - namespace_kinds
-            if added:
-                namespace_kinds.update(added)
-                pending_names.append(target)
+    namespaces = _python_propagated_namespace_aliases(namespaces, aliases)
 
     importer_edges: dict[str, set[str]] = {}
     for value, names in bindings:
@@ -3009,7 +3037,7 @@ def _python_dynamic_namespace_values_projected(
             if (
                 value.attr == "__import__" and "builtins" in namespaces.get(value.value.id, ())
             ) or (
-                value.attr == "import_module" and value.value.id in importlib_namespaces
+                value.attr == "import_module" and "importlib" in namespaces.get(value.value.id, ())
             ):
                 importers.update(names)
     pending_importers = list(importers)
@@ -3026,7 +3054,7 @@ def _python_dynamic_namespace_values_projected(
             return (
                 node.attr == "__import__" and "builtins" in namespaces.get(node.value.id, ())
             ) or (
-                node.attr == "import_module" and node.value.id in importlib_namespaces
+                node.attr == "import_module" and "importlib" in namespaces.get(node.value.id, ())
             )
         return False
 
@@ -3047,7 +3075,10 @@ def _python_dynamic_namespace_values_projected(
                 (keyword.value for keyword in node.keywords if keyword.arg == "name"),
                 None,
             )
-            if target is not None and _static_string_expression(target) in {"builtins", "sys", "importlib"}:
+            target_name = _static_string_expression(target) if target is not None else None
+            if target_name is None or target_name.split(".", 1)[0] in {
+                "builtins", "sys", "importlib", "operator", *PYTHON_RUNTIME_ABORT_MODULES,
+            }:
                 known.add(key)
         if importer_reference(node):
             parent = parents.get(id(node))
@@ -3080,7 +3111,7 @@ def _python_dynamic_namespace_values_projected(
                 # through a value/container/call is an opaque address escape.
                 known.add(key)
         if isinstance(node, ast.Attribute):
-            if node.attr in {"__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"}:
+            if node.attr in PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES:
                 known.add(key)
             value = node.value
             while isinstance(value, ast.NamedExpr):
@@ -3127,6 +3158,14 @@ def _python_new_getter_uses_are_unsafe_projected(
     """Allow only proved selector calls and finite aliases in new subjects."""
 
     nodes = tuple(ast.walk(tree))
+    if any(
+        isinstance(node, ast.ImportFrom)
+        and any(alias.name == "*" for alias in node.names)
+        for node in nodes
+    ):
+        # Wildcard sources cannot establish which capability supplies a name.
+        # Missing external source is not evidence that its exports are inert.
+        return True
     if _python_dynamic_namespace_values_projected(nodes, imported_modules):
         return True
     parents = {
@@ -5352,7 +5391,7 @@ def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
     # imports rather than try to prove arbitrary aliases, exception references,
     # fixture factories, or collection hooks harmless. Existing dependencies
     # retain their original identity rules outside this new admission proof.
-    framework_modules = {"pytest", "_pytest", "unittest"}
+    framework_modules = PYTHON_RUNTIME_ABORT_MODULES
     dynamic_modules = _dynamic_python_import_modules(
         tree,
         imported_modules,
@@ -7225,6 +7264,10 @@ def _python_imported_binding_source_impl(
                 continue
             star_source = import_source_resolver(star_module)
             if star_source is None:
+                if analysis.runtime_consumer:
+                    raise TestCorpusGuardError(
+                        "dynamic runtime namespace access cannot be inventoried safely"
+                    )
                 continue
             try:
                 star_matches.append(
