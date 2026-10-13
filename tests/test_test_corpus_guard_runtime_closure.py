@@ -5149,6 +5149,44 @@ def test_unknown_dynamic_import_target_remains_refused(loader: str) -> None:
     "child",
     [
         pytest.param(
+            "import inspect\n"
+            "def runtime_value(case):\n"
+            "    return inspect.currentframe().f_builtins['getattr'](case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_inspect",
+        ),
+        pytest.param(
+            "from inspect import currentframe as active_frame\n"
+            "def runtime_value(case):\n"
+            "    frame = active_frame()\n"
+            "    lookup = frame.f_builtins['getattr']\n"
+            "    return lookup(case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_alias",
+        ),
+        pytest.param(
+            "import sys\n"
+            "def runtime_value(case):\n"
+            "    return sys._getframe().f_builtins['getattr'](case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_sys",
+        ),
+        pytest.param(
+            "import inspect\n"
+            "def runtime_value(case):\n"
+            "    return getattr(inspect.currentframe(), 'f_builtins')['getattr'](case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_getattr",
+        ),
+        pytest.param(
+            "import inspect\nfrom operator import attrgetter\n"
+            "def runtime_value(case):\n"
+            "    return attrgetter('f_builtins')(inspect.currentframe())['getattr'](case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_operator",
+        ),
+        pytest.param(
+            "import inspect\nfrom _operator import attrgetter\n"
+            "def runtime_value(case):\n"
+            "    return attrgetter('f_builtins')(inspect.currentframe())['getattr'](case, 'skipTest')('unavailable')\n",
+            id="frame_builtins_native_operator",
+        ),
+        pytest.param(
             "def runtime_value(case):\n"
             "    return getattr(lambda: None, '__builtins__')['eval'](\"case.skipTest('unavailable')\")\n",
             id="reflected-function-builtins",
@@ -5259,7 +5297,7 @@ def test_reviewed_namespace_and_wildcard_gaps_preserve_retained_test(
 
 
 @pytest.mark.parametrize(
-    "selector", ["__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"]
+    "selector", ["__dict__", "__globals__", "__builtins__", "f_globals", "f_locals", "f_builtins"]
 )
 def test_reflected_runtime_namespace_selectors_share_direct_property_boundary(
     selector: str,
