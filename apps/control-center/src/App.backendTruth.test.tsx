@@ -76,7 +76,10 @@ beforeEach(() => {
   mocked.truthEnabled = false;
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("critical backend truth boundary", () => {
   it("loads backend truth before rendering the runtime mutation surface", () => {
@@ -207,6 +210,58 @@ describe("critical backend truth boundary", () => {
     expect(
       screen.queryByText(/not showing unverified product state/i),
     ).not.toBeInTheDocument();
+  });
+
+  it.each(["backend_owned", "mock_fallback"] as const)(
+    "admits first-run Chat only with %s route data",
+    async (routeState) => {
+      window.history.pushState({}, "", "/chat");
+      mocked.controlCenterState = {
+        status: "ready", data: backendData(routeState), error: null,
+      };
+      mocked.truthState = {
+        status: "onboarding",
+        truth: {
+          backend_revision_ref: lastVerified.backendRevisionRef,
+          envelope_integrity_ref: "proof-ref:truth:first-run",
+        },
+        errorRef: "BACKEND_TRUTH_EVIDENCE_INCOMPLETE",
+        lastVerified: null,
+        retry: vi.fn(),
+      };
+      const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+        new Response("{}", { status: 401 }),
+      );
+
+      render(<App />);
+
+      if (routeState === "backend_owned") {
+        expect(screen.getByRole("heading", { name: "Talk to your model" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+        expect(screen.getByRole("link", { name: /^Chat$/ })).toHaveAttribute("href", "/chat");
+        await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+        expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/v1/chat/completions"))).toBe(false);
+      } else {
+        expect(screen.getByText("CRITICAL_ROUTE_READ_MODEL_UNVERIFIED")).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Talk to your model" })).not.toBeInTheDocument();
+        expect(fetchMock).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it.each([
+    "BACKEND_TRUTH_STALE", "BACKEND_TRUTH_EVIDENCE_INVALID",
+    "BACKEND_TRUTH_STORAGE_UNAVAILABLE", "BACKEND_TRUTH_REVISION_UNBOUND",
+  ])("keeps first-run Chat closed for %s", (errorRef) => {
+    window.history.pushState({}, "", "/chat");
+    mocked.truthState = {
+      status: "degraded", truth: null, errorRef, lastVerified: null, retry: vi.fn(),
+    };
+
+    render(<App />);
+
+    expect(screen.getByText(errorRef)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Talk to your model" })).not.toBeInTheDocument();
   });
 
   it("admits the exact Action Inbox bootstrap lane during first run", () => {

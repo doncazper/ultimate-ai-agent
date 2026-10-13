@@ -1309,6 +1309,9 @@ const NORTH_STAR_SHELL_ROUTE_KEYS = [
 
 const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/actions",
+  // Explicit local conversation does not require a completed founder loop.
+  // Backend revision, evidence validity and route ownership still apply.
+  "/chat",
   // Reviewed local News intake does not claim complete founder-loop evidence.
   "/news",
   "/finance",
@@ -1459,7 +1462,7 @@ function CriticalBackendTruthUnavailable({
           {pending
             ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
             : firstRun
-              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here, Setup, Action Inbox, reviewed local News intake, and the exact Settings authority lane remain available; other critical product claims stay hidden."
+              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Local Chat, Start Here, Setup, Action Inbox, reviewed local News intake, and the exact Settings authority lane remain available; other critical product claims stay hidden."
             : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
         </p>
         <dl>

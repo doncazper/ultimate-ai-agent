@@ -114,6 +114,12 @@ conversation; New chat starts a fresh transient display. Reloading loses this
 content. The separate content-free checkpoint service still never accepts or
 stores message bodies and does not itself grant Send authority.
 
+Fresh installations can open local Chat before completing an unrelated founder
+workflow. The first-run exception still requires a valid revision-bound backend
+envelope and backend-owned route data; stale, invalid, unavailable-storage,
+unbound-revision and mock-backed states remain closed. Opening Chat never sends
+a model turn automatically or marks founder-loop evidence complete.
+
 Connection failures keep the draft available and never retry automatically.
 A lost reply is an uncertain outcome, not proof that the model did not run.
 The client permits at most 63 submitted messages and 64,000 characters of

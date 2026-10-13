@@ -57,6 +57,7 @@ export function AppShell({
   const visiblePrimaryLabels = new Set([
     "Start Here",
     "Today",
+    "Chat",
     "Messenger",
     "News & Signals",
     "Finance",
