@@ -75,6 +75,17 @@ proof; a bound or unbound `__getattribute__` lookup cannot bypass that boundary.
 Builtin maps and dynamic namespace access retain their lookup capability through
 aliases and escapes; an unproved namespace selection cannot become an ordinary
 dependency merely because its getter is obtained indirectly.
+Dynamically obtained namespaces, code-execution callables, and dynamic fixture
+activation use the same conservative capability boundary, including aliases,
+escaped values, and reflected selectors. Capability names belong to their
+lexical binding owners: a formal or local identifier does not acquire builtin
+authority from its spelling, while definition inputs retain their enclosing
+owner and a shadowed sibling does not erase an actual capability elsewhere.
+Module/class annotation-only, conditional, or deleted bindings cannot prove
+builtin shadowing; opaque executor aliases retain their capability at capture,
+even when the later invocation belongs to a different execution slice.
+Separately parsed consumer roots reuse lexical facts only after their complete
+syntax and source position match the owning module's parse.
 Import-time collection evidence also requires a positive effect proof, rather
 than only the absence of a recognized skip call. Executed object writes and
 opaque calls cannot disappear when a new dependency or changed existing module

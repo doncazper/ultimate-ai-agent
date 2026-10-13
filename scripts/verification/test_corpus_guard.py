@@ -2562,7 +2562,10 @@ def _python_new_getter_selection_is_unsafe(
     # Constant strings and addition are the complete selector grammar. Collect
     # at most the target's length: long constant expressions remain known-safe
     # without repeatedly materializing ever larger concatenated strings.
-    unsafe_selectors = {"skipTest", "__getattribute__", "__getattr__", "__dict__"}
+    unsafe_selectors = {
+        "skipTest", "__getattribute__", "__getattr__", "__dict__",
+        "exec", "eval", "getfixturevalue",
+    }
     selector_limit = max(map(len, unsafe_selectors))
     pending = [node.args[0 if kind == "bound-getattribute" else 1]]
     parts: list[str] = []
@@ -2589,14 +2592,17 @@ def _python_new_getter_kind(
 
     if isinstance(node, ast.Name) and node.id in aliases:
         return aliases[node.id]
-    opaque_symbols = {"operator.attrgetter", "operator.methodcaller", "builtins.vars"}
+    opaque_symbols = {
+        "operator.attrgetter", "operator.methodcaller", "builtins.vars",
+        "builtins.exec", "builtins.eval",
+    }
     if isinstance(node, ast.Name) and (
-        node.id == "vars"
+        node.id in {"vars", "exec", "eval"}
         or opaque_symbols.intersection(imported_modules.get(node.id, ()))
     ):
         return "opaque-lookup"
     if isinstance(node, ast.Attribute):
-        if node.attr == "__dict__":
+        if node.attr in {"__dict__", "getfixturevalue"}:
             return "opaque-lookup"
         namespace = node.value
         while isinstance(namespace, ast.NamedExpr):
@@ -2606,7 +2612,7 @@ def _python_new_getter_kind(
             if (
                 node.attr in {"attrgetter", "methodcaller"} and "operator" in candidates
             ) or (
-                node.attr == "vars"
+                node.attr in {"vars", "exec", "eval"}
                 and (namespace.id == "builtins" or "builtins" in candidates)
             ):
                 return "opaque-lookup"
@@ -2671,7 +2677,259 @@ def _python_conservative_getattr_aliases(
     return {alias: "getattr" for alias in sorted(known)}
 
 
+def _python_capability_projection(
+    tree: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> tuple[dict[int, ast.AST], dict[str, tuple[str, ...]]]:
+    """Build a source-owned lexical view without changing identity ASTs.
+
+    The capability graphs operate on names, so their vertices must identify a
+    binding owner rather than a spelling. A source index is shared by all
+    executed-owner slices; projected nodes never enter serialized identities.
+    """
+
+    source = getattr(tree, "_uaa_capability_source", tree)
+    complete_source = isinstance(source, ast.Module) and not getattr(source, "_uaa_capability_fragment", False)
+    cache_key = () if complete_source else tuple(sorted(imported_modules.items()))
+    cache = getattr(source, "_uaa_capability_projections", None)
+    if cache is None:
+        cache = {}
+        setattr(source, "_uaa_capability_projections", cache)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    scopes: dict[int, dict[str, Any]] = {}
+    owners: dict[int, int] = {}
+    original: dict[int, ast.AST] = {}
+    root = id(source)
+
+    def new_scope(node: ast.AST, parent: int | None, kind: str) -> int:
+        key = id(node)
+        scopes[key] = {
+            "parent": parent, "kind": kind, "bindings": {},
+            "globals": set(), "nonlocals": set(), "number": len(scopes),
+        }
+        return key
+
+    new_scope(source, None, "module")
+    pending = [(source, root)]
+    while pending:
+        node, owner = pending.pop()
+        original[id(node)] = node
+        owners[id(node)] = owner
+        setattr(node, "_uaa_capability_source", source)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            # A root callable is still defined outside its own body scope.
+            scope_key = id(node)
+            if scope_key == root:
+                scope_key = -root
+                scopes[scope_key] = {
+                    "parent": root, "kind": "class" if isinstance(node, ast.ClassDef) else "function",
+                    "bindings": {}, "globals": set(), "nonlocals": set(),
+                    "number": len(scopes),
+                }
+            else:
+                new_scope(node, owner, "class" if isinstance(node, ast.ClassDef) else "function")
+            pending.extend((part, owner) for part in _definition_time_nodes(node))
+            if isinstance(node, ast.ClassDef):
+                for keyword in node.keywords:
+                    original[id(keyword)] = keyword
+                    owners[id(keyword)] = owner
+            if not isinstance(node, ast.ClassDef):
+                arguments = node.args
+                for argument in (
+                    *arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs,
+                    *((arguments.vararg,) if arguments.vararg is not None else ()),
+                    *((arguments.kwarg,) if arguments.kwarg is not None else ()),
+                ):
+                    scopes[scope_key]["bindings"].setdefault(argument.arg, []).append(argument)
+                    original[id(argument)] = argument
+                    owners[id(argument)] = scope_key
+                original[id(arguments)] = arguments
+                owners[id(arguments)] = scope_key
+            body = (node.body,) if isinstance(node, ast.Lambda) else node.body
+            pending.extend((part, scope_key) for part in body)
+            continue
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            scope_key = new_scope(node, owner, "comprehension")
+            for index, generator in enumerate(node.generators):
+                original[id(generator)] = generator
+                owners[id(generator)] = scope_key
+                for name in _binding_target_names(generator.target):
+                    scopes[scope_key]["bindings"].setdefault(name, []).append(generator.target)
+                pending.append((generator.iter, owner if index == 0 else scope_key))
+                pending.append((generator.target, scope_key))
+                pending.extend((part, scope_key) for part in generator.ifs)
+            pending.extend(
+                (part, scope_key)
+                for part in ((node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,))
+            )
+            continue
+        if isinstance(node, ast.NamedExpr) and scopes[owner]["kind"] == "comprehension":
+            target_owner = owner
+            while scopes[target_owner]["kind"] == "comprehension":
+                target_owner = scopes[target_owner]["parent"]
+            pending.extend(((node.value, owner), (node.target, target_owner)))
+            for name in _binding_target_names(node.target):
+                scopes[target_owner]["bindings"].setdefault(name, []).append(node)
+            continue
+        pending.extend((part, owner) for part in ast.iter_child_nodes(node))
+
+    import_alias_names: list[tuple[ast.alias, str]] = []
+    for node in original.values():
+        owner = owners[id(node)]
+        scope = scopes[owner]
+        if isinstance(node, ast.Global):
+            scope["globals"].update(node.names)
+        elif isinstance(node, ast.Nonlocal):
+            scope["nonlocals"].update(node.names)
+        for name in _execution_binding_names(node):
+            scope["bindings"].setdefault(name, []).append(node)
+
+    def symbol(owner: int, name: str) -> str:
+        return f"_uaa_scope_{scopes[owner]['number']}_{name}"
+
+    capability_fallback_names = {
+        *MODULE_NAMESPACE_ACCESSORS, "__builtins__", "__import__", "builtins",
+        "sys", "getattr", "object", "exec", "eval",
+    }
+    parents = {
+        id(child): parent
+        for parent in original.values()
+        for child in ast.iter_child_nodes(parent)
+    }
+
+    def definitely_bound_namespace_name(owner: int, name: str, node: ast.AST) -> bool:
+        # Unlike function locals, module/class lookup can fall back to a
+        # builtin when a conditional, annotation-only, or deleted binding has
+        # not supplied a value. Only an earlier unconditional value binding
+        # proves that the capability spelling is shadowed. A possible deletion
+        # conservatively invalidates this proof, including global deletions.
+        events = scopes[owner]["bindings"].get(name, ())
+        if any(isinstance(event, ast.Delete) for event in events):
+            return False
+        position = (getattr(node, "lineno", -1), getattr(node, "col_offset", -1))
+        return any(
+            parents.get(id(event)) is original.get(owner)
+            and isinstance(event, (ast.Assign, ast.AnnAssign, ast.FunctionDef,
+                                   ast.AsyncFunctionDef, ast.ClassDef, ast.Import,
+                                   ast.ImportFrom))
+            and not (isinstance(event, ast.AnnAssign) and event.value is None)
+            and (getattr(event, "end_lineno", -1), getattr(event, "end_col_offset", -1)) < position
+            for event in events
+        )
+
+    def binding_owner(owner: int, name: str, node: ast.AST, *, store: bool = False) -> int | None:
+        initial = owner
+        runtime = scopes[owner]["kind"] in {"function", "comprehension"}
+        while owner is not None:
+            scope = scopes[owner]
+            if name in scope["globals"] and owner != root:
+                owner = root
+                continue
+            if name in scope["nonlocals"]:
+                owner = scope["parent"]
+                while owner is not None and scopes[owner]["kind"] == "class":
+                    owner = scopes[owner]["parent"]
+                continue
+            events = scope["bindings"].get(name, ())
+            if events:
+                if store or scope["kind"] in {"function", "comprehension"}:
+                    return owner
+                if name in capability_fallback_names:
+                    if definitely_bound_namespace_name(owner, name, node):
+                        return owner
+                elif runtime:
+                    return owner
+                position = (getattr(node, "lineno", -1), getattr(node, "col_offset", -1))
+                if name not in capability_fallback_names and any(
+                    (getattr(event, "end_lineno", -1), getattr(event, "end_col_offset", -1)) < position
+                    for event in events
+                ):
+                    return owner
+            parent = scope["parent"]
+            if owner == initial and scope["kind"] in {"function", "comprehension"}:
+                runtime = True
+            while parent is not None and scopes[parent]["kind"] == "class":
+                parent = scopes[parent]["parent"]
+            owner = parent
+        return None
+
+    projected_imports: dict[str, tuple[str, ...]] = {}
+    for owner, scope in scopes.items():
+        if owner == root:
+            continue
+        for name in scope["globals"]:
+            scopes[root]["bindings"].setdefault(name, []).extend(scope["bindings"].get(name, ()))
+    # Supplied imports describe a fragment's external defining context. Imports
+    # represented in this source are indexed from their actual owner instead.
+    represented_imports = {
+        name for node in original.values() if isinstance(node, (ast.Import, ast.ImportFrom))
+        for name in _execution_binding_names(node)
+    }
+    for name, candidates in imported_modules.items():
+        if not complete_source and name not in represented_imports:
+            projected_imports[name] = candidates
+    projected: dict[int, ast.AST] = {}
+    for node in original.values():
+        clone = type(node)()
+        for attribute in node._attributes:
+            if hasattr(node, attribute):
+                setattr(clone, attribute, getattr(node, attribute))
+        projected[id(node)] = clone
+    for node in original.values():
+        clone = projected[id(node)]
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, ast.AST):
+                setattr(clone, field, projected.get(id(value), value))
+            elif isinstance(value, list):
+                setattr(clone, field, [projected.get(id(part), part) if isinstance(part, ast.AST) else part for part in value])
+            else:
+                setattr(clone, field, value)
+        if isinstance(node, ast.Name):
+            owner = binding_owner(owners[id(node)], node.id, node, store=not isinstance(node.ctx, ast.Load))
+            if owner is not None:
+                clone.id = symbol(owner, node.id)
+        elif isinstance(node, ast.arg):
+            clone.arg = symbol(owners[id(node)], node.arg)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            imports = _python_import_modules(ast.Module(body=[node], type_ignores=[]))
+            for alias, copied_alias in zip(node.names, clone.names, strict=True):
+                name = alias.asname or (alias.name.split(".", 1)[0] if isinstance(node, ast.Import) else alias.name)
+                owner = binding_owner(owners[id(node)], name, node, store=True)
+                target = name if owner is None else symbol(owner, name)
+                import_alias_names.append((copied_alias, target))
+                projected_imports[target] = tuple(dict.fromkeys((*projected_imports.get(target, ()), *imports.get(name, ()))))
+    for alias, target in import_alias_names:
+        alias.asname = target
+    result = projected, projected_imports
+    cache[cache_key] = result
+    return result
+
+
 def _python_dynamic_namespace_values(
+    nodes: tuple[ast.AST, ...],
+    imported_modules: dict[str, tuple[str, ...]],
+    *,
+    source_tree: ast.AST | None = None,
+) -> frozenset[int]:
+    if not nodes:
+        return frozenset()
+    source = source_tree or getattr(nodes[0], "_uaa_capability_source", None)
+    if source is None:
+        source = ast.Module(body=list(nodes), type_ignores=[])
+        setattr(source, "_uaa_capability_fragment", True)
+    projected, imports = _python_capability_projection(source, imported_modules)
+    # Lambda execution wraps its already-owned expression in a fresh Expr. It
+    # carries no binding/value edge and must not require another source index.
+    nodes = tuple(node for node in nodes if not (isinstance(node, ast.Expr) and id(node) not in projected and id(node.value) in projected))
+    if any(id(node) not in projected for node in nodes):
+        raise TestCorpusGuardError("dynamic runtime namespace access cannot be inventoried safely")
+    values = _python_dynamic_namespace_values_projected(tuple(projected[id(node)] for node in nodes), imports)
+    return frozenset(id(node) for node in nodes if id(projected[id(node)]) in values)
+
+
+def _python_dynamic_namespace_values_projected(
     nodes: tuple[ast.AST, ...],
     imported_modules: dict[str, tuple[str, ...]],
 ) -> frozenset[int]:
@@ -2687,10 +2945,16 @@ def _python_dynamic_namespace_values(
     aliases: dict[str, set[str]] = {}
     bindings: list[tuple[ast.AST, set[str]]] = []
     namespaces = {"builtins": {"builtins"}, "sys": {"sys"}}
+    importers = {"__import__"}
+    importlib_namespaces: set[str] = set()
     accessor_names = set(MODULE_NAMESPACE_ACCESSORS)
     mapping_names = {"__builtins__"}
     direct_namespace_aliases: set[int] = set()
     for name, candidates in imported_modules.items():
+        if {"builtins.__import__", "importlib.import_module"}.intersection(candidates):
+            importers.add(name)
+        if candidates[:1] == ("importlib",):
+            importlib_namespaces.add(name)
         for namespace in ("builtins", "sys"):
             if candidates[:1] == (namespace,):
                 namespaces.setdefault(name, set()).add(namespace)
@@ -2735,6 +2999,37 @@ def _python_dynamic_namespace_values(
                 namespace_kinds.update(added)
                 pending_names.append(target)
 
+    importer_edges: dict[str, set[str]] = {}
+    for value, names in bindings:
+        while isinstance(value, ast.NamedExpr):
+            value = value.value
+        if isinstance(value, ast.Name):
+            importer_edges.setdefault(value.id, set()).update(names)
+        elif isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name):
+            if (
+                value.attr == "__import__" and "builtins" in namespaces.get(value.value.id, ())
+            ) or (
+                value.attr == "import_module" and value.value.id in importlib_namespaces
+            ):
+                importers.update(names)
+    pending_importers = list(importers)
+    while pending_importers:
+        for alias in importer_edges.get(pending_importers.pop(), ()):
+            if alias not in importers:
+                importers.add(alias)
+                pending_importers.append(alias)
+
+    def importer_reference(node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return node.id in importers
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            return (
+                node.attr == "__import__" and "builtins" in namespaces.get(node.value.id, ())
+            ) or (
+                node.attr == "import_module" and node.value.id in importlib_namespaces
+            )
+        return False
+
     edges: dict[tuple[str, int | str], set[tuple[str, int | str]]] = {}
     known: set[tuple[str, int | str]] = set()
 
@@ -2747,6 +3042,26 @@ def _python_dynamic_namespace_values(
     seed_names = accessor_names | mapping_names
     for node in nodes:
         key = ("expression", id(node))
+        if isinstance(node, ast.Call) and importer_reference(node.func):
+            target = node.args[0] if node.args else next(
+                (keyword.value for keyword in node.keywords if keyword.arg == "name"),
+                None,
+            )
+            if target is not None and _static_string_expression(target) in {"builtins", "sys", "importlib"}:
+                known.add(key)
+        if importer_reference(node):
+            parent = parents.get(id(node))
+            if not (
+                isinstance(parent, ast.Call) and parent.func is node
+            ) and not (
+                isinstance(parent, (ast.Assign, ast.AnnAssign, ast.NamedExpr))
+                and parent.value is node
+                and all(
+                    isinstance(target, ast.Name) and target.id in importers
+                    for target in (parent.targets if isinstance(parent, ast.Assign) else (parent.target,))
+                )
+            ):
+                known.add(key)
         if isinstance(node, ast.Name):
             link(("name", node.id), key)
             if isinstance(node.ctx, ast.Load) and node.id in seed_names:
@@ -2797,10 +3112,22 @@ def _python_new_getter_uses_are_unsafe(
     tree: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
 ) -> bool:
+    """Use owner-qualified capability facts without changing source identity."""
+
+    projected, imports = _python_capability_projection(tree, imported_modules)
+    if id(tree) not in projected:
+        raise TestCorpusGuardError("dynamic runtime namespace access cannot be inventoried safely")
+    return _python_new_getter_uses_are_unsafe_projected(projected[id(tree)], imports)
+
+
+def _python_new_getter_uses_are_unsafe_projected(
+    tree: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
     """Allow only proved selector calls and finite aliases in new subjects."""
 
     nodes = tuple(ast.walk(tree))
-    if _python_dynamic_namespace_values(nodes, imported_modules):
+    if _python_dynamic_namespace_values_projected(nodes, imported_modules):
         return True
     parents = {
         id(child): node for node in nodes for child in ast.iter_child_nodes(node)
@@ -2939,6 +3266,11 @@ def _python_new_getter_uses_are_unsafe(
             return True
         if not namespace_reference and not getter_reference(reference, aliases):
             continue
+        if _python_new_getter_kind(reference, imported_modules, aliases) == "opaque-lookup":
+            # Opaque executors/activators retain abort capability even when
+            # this execution slice contains only their captured assignment.
+            # A finite alias proves its address, not a safe later invocation.
+            return True
         value = reference
         parent = parents.get(id(value))
         while isinstance(parent, ast.NamedExpr) and parent.value is value:
@@ -5061,17 +5393,24 @@ def _python_runtime_abort_reference_present(module: str, source: str) -> bool:
         for name, candidates in imported_modules.items()
         if {"unittest", "unittest.case"}.intersection(candidates)
     }
-    getter_aliases = _python_conservative_getattr_aliases(nodes, imported_modules)
     if _python_new_getter_uses_are_unsafe(tree, imported_modules):
+        return True
+    projected, projected_imports = _python_capability_projection(tree, imported_modules)
+    projected_nodes = tuple(ast.walk(projected[id(tree)]))
+    projected_getter_aliases = _python_conservative_getattr_aliases(
+        projected_nodes, projected_imports
+    )
+    if any(
+        _python_new_getter_selection_is_unsafe(
+            node, projected_imports, projected_getter_aliases
+        )
+        for node in projected_nodes
+    ):
         return True
     for node in (
         *nodes,
         *(ast.Name(id=name, ctx=ast.Load()) for name in imported_modules),
     ):
-        if _python_new_getter_selection_is_unsafe(
-            node, imported_modules, getter_aliases
-        ):
-            return True
         if _pytest_collection_abort_callable_name(node, imported_modules, {}) in {
             "exit", "importorskip", "skip", "skip-exception", "xfail", "xfail-exception"
         } or _unittest_skiptest_reference(
@@ -5671,7 +6010,7 @@ def _python_runtime_object_effects(
         return cache[key]
     body = [ast.Expr(value=scope.body)] if isinstance(scope, ast.Lambda) else scope.body
     parts = _module_collection_execution_nodes(ast.Module(body=body, type_ignores=[]))
-    namespace_values = _python_dynamic_namespace_values(parts, analysis.imported_modules)
+    namespace_values = _python_dynamic_namespace_values(parts, analysis.imported_modules, source_tree=analysis.tree)
     aliases: dict[str, set[str]] = {}
     effects: dict[str, list[ast.AST]] = {}
     mutable: set[str] = set()
@@ -5809,6 +6148,7 @@ def _python_runtime_definition_context(
     if _python_dynamic_namespace_values(
         namespace_nodes,
         analysis.imported_modules,
+        source_tree=analysis.tree,
     ):
         raise TestCorpusGuardError(
             "dynamic runtime namespace access cannot be inventoried safely"
@@ -6075,6 +6415,34 @@ def _python_runtime_definition_context(
     return context
 
 
+def _python_source_owned_runtime_root(tree: ast.Module, node: ast.AST) -> ast.AST:
+    """Bind a separately parsed consumer to this exact source, not its names.
+
+    Inventory roots and imported-source analysis can parse the same module
+    independently. Capability facts use AST identities, so reuse the owning
+    parse only after both source position and complete syntax agree.
+    """
+
+    index = getattr(tree, "_uaa_runtime_root_index", None)
+    if index is None:
+        index = {
+            (type(part), part.lineno, part.col_offset): part
+            for part in ast.walk(tree)
+            if isinstance(part, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        setattr(tree, "_uaa_runtime_root_index", index)
+    owned = index.get((type(node), node.lineno, node.col_offset))
+    if owned is node:
+        return node
+    if owned is None or ast.dump(owned, include_attributes=True) != ast.dump(
+        node, include_attributes=True
+    ):
+        raise TestCorpusGuardError(
+            "runtime consumer root does not match its source owner"
+        )
+    return owned
+
+
 def _python_binding_node_analysis(
     analysis: _PythonBindingModuleAnalysis,
     node: ast.AST,
@@ -6141,7 +6509,7 @@ def _python_binding_node_analysis(
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
             else _scope_execution_nodes([node])
         )
-        if _python_dynamic_namespace_values(namespace_nodes, imported_modules):
+        if _python_dynamic_namespace_values(namespace_nodes, imported_modules, source_tree=analysis.tree):
             raise TestCorpusGuardError(
                 "dynamic runtime namespace access cannot be inventoried safely"
             )
@@ -6453,6 +6821,13 @@ def _python_imported_binding_source_impl(
         source,
         import_source_resolver,
     )
+    if _root_node is not None:
+        _root_node = _python_source_owned_runtime_root(analysis.tree, _root_node)
+    if _root_context is not None:
+        _root_context = replace(
+            _root_context,
+            node=_python_source_owned_runtime_root(analysis.tree, _root_context.node),
+        )
     tree = analysis.tree
     relative_package = analysis.relative_package
     module_bindings = analysis.module_bindings
