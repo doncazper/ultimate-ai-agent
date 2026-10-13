@@ -80,6 +80,8 @@ activation use the same conservative capability boundary, including aliases,
 escaped values, and reflected selectors.
 Direct and reflected namespace-property selection share the same classification;
 importer module aliases retain provenance through the namespace alias graph.
+The public `operator` and native `_operator` exports share one capability family
+for explicit imports, module aliases, and dynamic namespace selection.
 Dynamic target discovery and runtime capability checks share that alias
 provenance. Runtime checks select source-owned facts for the reached execution
 slice, so a module-level alias cannot disappear at a callable boundary.

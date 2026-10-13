@@ -5203,6 +5203,31 @@ def test_unknown_dynamic_import_target_remains_refused(loader: str) -> None:
             "def runtime_value(case): return eval(\"case.skipTest('unavailable')\")\n",
             id="wildcard-executor",
         ),
+        pytest.param(
+            "import _operator\n"
+            "def runtime_value(case): return _operator.methodcaller('skipTest', 'unavailable')(case)\n",
+            id="native-operator-methodcaller",
+        ),
+        pytest.param(
+            "from _operator import attrgetter\n"
+            "def runtime_value(case): return attrgetter('skipTest')(case)('unavailable')\n",
+            id="native-operator-attrgetter",
+        ),
+        pytest.param(
+            "import importlib\n"
+            "def runtime_value(case): return importlib.import_module('_operator').methodcaller('skipTest', 'unavailable')(case)\n",
+            id="dynamic-native-operator",
+        ),
+        pytest.param(
+            "import _operator as original\nselected = original\n"
+            "def runtime_value(case): return selected.methodcaller('skipTest', 'unavailable')(case)\n",
+            id="native-operator-module-alias",
+        ),
+        pytest.param(
+            "import operator as original\nselected = original\n"
+            "def runtime_value(case): return selected.methodcaller('skipTest', 'unavailable')(case)\n",
+            id="public-operator-module-alias",
+        ),
     ],
 )
 @pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
@@ -5259,9 +5284,11 @@ def test_reflected_runtime_namespace_selectors_share_direct_property_boundary(
         "def runtime_value(case): return loader.import_module('math').floor(1.2)\n",
         "from operator import getitem\n"
         "def runtime_value(case): return getitem([1], 0)\n",
+        "from _operator import getitem\n"
+        "def runtime_value(case): return getitem([1], 0)\n",
         "def runtime_value(case): return getattr(case, 'value', 1)\n",
     ],
-    ids=["ordinary-importer-alias", "explicit-operator-getitem", "ordinary-getattr"],
+    ids=["ordinary-importer-alias", "explicit-operator-getitem", "native-operator-getitem", "ordinary-getattr"],
 )
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
 def test_namespace_repair_preserves_proven_ordinary_runtime_sources(

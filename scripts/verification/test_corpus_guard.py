@@ -461,6 +461,7 @@ PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES = frozenset(
     {"__dict__", "__globals__", "__builtins__", "f_globals", "f_locals"}
 )
 PYTHON_RUNTIME_ABORT_MODULES = frozenset({"pytest", "_pytest", "unittest"})
+PYTHON_OPERATOR_NAMESPACES = frozenset({"operator", "_operator"})
 GLOBAL_NAMESPACE_ACCESSORS = frozenset({"globals"})
 LOCAL_NAMESPACE_ACCESSORS = frozenset({"locals", "vars"})
 READ_ONLY_COLLECTION_METHODS = {
@@ -2623,7 +2624,9 @@ def _python_new_getter_kind(
     if isinstance(node, ast.Name) and node.id in aliases:
         return aliases[node.id]
     opaque_symbols = {
-        "operator.attrgetter", "operator.methodcaller", "builtins.vars",
+        *(f"{namespace}.{member}" for namespace in PYTHON_OPERATOR_NAMESPACES
+          for member in ("attrgetter", "methodcaller")),
+        "builtins.vars",
         "builtins.exec", "builtins.eval",
     }
     if isinstance(node, ast.Name) and (
@@ -2640,7 +2643,8 @@ def _python_new_getter_kind(
         if isinstance(namespace, ast.Name):
             candidates = imported_modules.get(namespace.id, ())
             if (
-                node.attr in {"attrgetter", "methodcaller"} and "operator" in candidates
+                node.attr in {"attrgetter", "methodcaller"}
+                and PYTHON_OPERATOR_NAMESPACES.intersection(candidates)
             ) or (
                 node.attr in {"vars", "exec", "eval"}
                 and (namespace.id == "builtins" or "builtins" in candidates)
@@ -2991,7 +2995,7 @@ def _python_dynamic_namespace_values_projected(
     for name, candidates in imported_modules.items():
         if {"builtins.__import__", "importlib.import_module"}.intersection(candidates):
             importers.add(name)
-        for namespace in ("builtins", "sys", "importlib"):
+        for namespace in ("builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES):
             if candidates[:1] == (namespace,):
                 namespaces.setdefault(name, set()).add(namespace)
         if any(f"builtins.{accessor}" in candidates for accessor in MODULE_NAMESPACE_ACCESSORS):
@@ -3001,7 +3005,7 @@ def _python_dynamic_namespace_values_projected(
     for node in nodes:
         if isinstance(node, ast.Import):
             for imported in node.names:
-                if imported.name in {"builtins", "sys", "importlib"}:
+                if imported.name in {"builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES}:
                     namespaces.setdefault(imported.asname or imported.name, set()).add(imported.name)
         elif isinstance(node, ast.ImportFrom):
             for imported in node.names:
@@ -3077,7 +3081,8 @@ def _python_dynamic_namespace_values_projected(
             )
             target_name = _static_string_expression(target) if target is not None else None
             if target_name is None or target_name.split(".", 1)[0] in {
-                "builtins", "sys", "importlib", "operator", *PYTHON_RUNTIME_ABORT_MODULES,
+                "builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES,
+                *PYTHON_RUNTIME_ABORT_MODULES,
             }:
                 known.add(key)
         if importer_reference(node):
@@ -3119,6 +3124,9 @@ def _python_dynamic_namespace_values_projected(
             kinds = namespaces.get(value.id, set()) if isinstance(value, ast.Name) else set()
             if ("builtins" in kinds and node.attr in MODULE_NAMESPACE_ACCESSORS) or (
                 "sys" in kinds and node.attr == "modules"
+            ) or (
+                PYTHON_OPERATOR_NAMESPACES.intersection(kinds)
+                and node.attr in {"attrgetter", "methodcaller"}
             ):
                 known.add(key)
         if not isinstance(node, (ast.stmt, ast.Module)):
@@ -3201,7 +3209,7 @@ def _python_new_getter_uses_are_unsafe_projected(
     operator_namespaces = {
         name
         for name, candidates in imported_modules.items()
-        if candidates[:1] == ("operator",)
+        if candidates and candidates[0] in PYTHON_OPERATOR_NAMESPACES
     }
     pending = list(operator_namespaces)
     while pending:
