@@ -1284,9 +1284,10 @@ def _local_conversation_boundary_failures(text: str) -> list[str]:
         return ["frontend local conversation helper missing or ambiguous"]
     compact = _compact_typescript(body)
     required = (
-        "!API_BASE_POLICY.allowed||!localApiBearerForRequest()",
+        "!API_BASE_POLICY.allowed||!localApiBearerForRequest()||!binding",
         'fetch(API_BASE_POLICY.baseUrl+API_ENDPOINTS.localChatCompletions,{method:"POST"',
-        "headers:withLocalApiAuthHeaders({",
+        "headers:withBackendTruthMutationHeaders(withLocalApiAuthHeaders({",
+        "}),binding),body:JSON.stringify(",
         '"X-UAA-Idempotency-Key":',
         "crypto.randomUUID()",
         "messages.length>LOCAL_CONVERSATION_MESSAGE_LIMIT",

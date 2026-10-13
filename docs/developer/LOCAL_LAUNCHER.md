@@ -32,6 +32,11 @@ configured model-gateway key may differ from the Control Center bearer: it
 stays on the backend, as does the backend/provider key. No additional secret is
 handed to the browser. Missing, expired, or rebound provenance fails closed;
 the M151 deterministic test shell is mock-only, not conversational readiness.
+When M164 is explicitly enabled, the launcher uses the existing loopback-only
+API-base setting for all Control Center requests and binds CORS to the exact
+validated frontend origin, including an automatically selected local port.
+The shared Vite/test configuration is unchanged. Without M164, the existing
+relative API and development proxy behavior is retained.
 
 | Service | URL | Command family |
 |---|---|---|

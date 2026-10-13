@@ -38,6 +38,9 @@ def test_control_center_frontend_verifier_passes_current_repo() -> None:
     ("original", "replacement"),
     [
         ("!localApiBearerForRequest()", "false"),
+        ("|| !binding", "|| false"),
+        ("}), binding)", "}), null)"),
+        ("headers: withBackendTruthMutationHeaders", "headers: unrelatedHeaders"),
         ("API_ENDPOINTS.localChatCompletions", "API_ENDPOINTS.runtimeAuthorityLeases"),
         ("stream: false", "stream: true"),
         ("max_tokens: 1024", "max_tokens: 4096"),
