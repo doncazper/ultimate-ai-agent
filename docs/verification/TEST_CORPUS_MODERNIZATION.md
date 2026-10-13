@@ -78,6 +78,13 @@ dependency merely because its getter is obtained indirectly.
 Dynamically obtained namespaces, code-execution callables, and dynamic fixture
 activation use the same conservative capability boundary, including aliases,
 escaped values, and reflected selectors.
+That boundary includes compilation, executable-code constructors/carriers and
+pytest hook dispatch/retrieval. Ordinary qualified operations such as regular
+expression compilation do not acquire builtin execution authority by spelling.
+Library compiler factories and member-reflection getters share the same
+module-member registry across direct imports, aliases and reflected selection.
+Consumer matching strips only terminal generated fingerprint metadata while
+preserving occurrence suffixes and literal hash characters inside test paths.
 Direct and reflected namespace-property selection share the same classification;
 importer module aliases retain provenance through the namespace alias graph.
 Frame builtins (`f_builtins`) share that boundary with frame globals and locals,

@@ -483,6 +483,25 @@ PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES = frozenset(
 )
 PYTHON_RUNTIME_ABORT_MODULES = frozenset({"pytest", "_pytest", "unittest"})
 PYTHON_OPERATOR_NAMESPACES = frozenset({"operator", "_operator"})
+PYTHON_DYNAMIC_EXECUTION_BUILTINS = frozenset({"exec", "eval", "compile"})
+PYTHON_EXECUTABLE_CODE_CONSTRUCTORS = frozenset({"FunctionType", "LambdaType", "CodeType"})
+PYTHON_OPAQUE_RUNTIME_ATTRIBUTES = frozenset(
+    {
+        "getfixturevalue", "ihook", "subset_hook_caller", "get_hookcallers",
+        "__code__", "f_code", "gi_code", "cr_code", "ag_code",
+        *PYTHON_EXECUTABLE_CODE_CONSTRUCTORS,
+    }
+)
+PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS = {
+    "builtins": frozenset({"vars", *PYTHON_DYNAMIC_EXECUTION_BUILTINS}),
+    "types": PYTHON_EXECUTABLE_CODE_CONSTRUCTORS,
+    "codeop": frozenset({"Compile", "CommandCompiler", "compile_command", "_compile", "_maybe_compile"}),
+    "inspect": frozenset({"getmembers", "getmembers_static", "getattr_static", "_getmembers"}),
+    **{namespace: frozenset({"attrgetter", "methodcaller"}) for namespace in PYTHON_OPERATOR_NAMESPACES},
+}
+PYTHON_CAPABILITY_NAMESPACES = frozenset(
+    {"sys", "importlib", *PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS}
+)
 GLOBAL_NAMESPACE_ACCESSORS = frozenset({"globals"})
 LOCAL_NAMESPACE_ACCESSORS = frozenset({"locals", "vars"})
 READ_ONLY_COLLECTION_METHODS = {
@@ -2615,8 +2634,9 @@ def _python_new_getter_selection_is_unsafe(
     # without repeatedly materializing ever larger concatenated strings.
     unsafe_selectors = {
         *PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES,
+        *PYTHON_OPAQUE_RUNTIME_ATTRIBUTES,
+        *(member for members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.values() for member in members),
         "skipTest", "__getattribute__", "__getattr__",
-        "exec", "eval", "getfixturevalue",
     }
     selector_limit = max(map(len, unsafe_selectors))
     pending = [node.args[0 if kind == "bound-getattribute" else 1]]
@@ -2625,14 +2645,18 @@ def _python_new_getter_selection_is_unsafe(
     while pending:
         value = pending.pop()
         if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            # Retain a bounded prefix even for a long literal: hook-dispatch
+            # names share a prefix rather than a finite member-name list.
+            parts.append(value.value[:max(0, selector_limit - length)])
             length += len(value.value)
-            if length <= selector_limit:
-                parts.append(value.value)
         elif isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
             pending.extend((value.right, value.left))
         else:
             return True
-    return length <= selector_limit and "".join(parts) in unsafe_selectors
+    selected = "".join(parts)
+    return selected.startswith("pytest_") or (
+        length <= selector_limit and selected in unsafe_selectors
+    )
 
 
 def _python_new_getter_kind(
@@ -2645,30 +2669,27 @@ def _python_new_getter_kind(
     if isinstance(node, ast.Name) and node.id in aliases:
         return aliases[node.id]
     opaque_symbols = {
-        *(f"{namespace}.{member}" for namespace in PYTHON_OPERATOR_NAMESPACES
-          for member in ("attrgetter", "methodcaller")),
-        "builtins.vars",
-        "builtins.exec", "builtins.eval",
+        f"{namespace}.{member}"
+        for namespace, members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.items()
+        for member in members
     }
     if isinstance(node, ast.Name) and (
-        node.id in {"vars", "exec", "eval"}
+        node.id in {"vars", *PYTHON_DYNAMIC_EXECUTION_BUILTINS}
         or opaque_symbols.intersection(imported_modules.get(node.id, ()))
     ):
         return "opaque-lookup"
     if isinstance(node, ast.Attribute):
-        if node.attr in {"__dict__", "getfixturevalue"}:
+        if node.attr in {"__dict__", *PYTHON_OPAQUE_RUNTIME_ATTRIBUTES} or node.attr.startswith("pytest_"):
             return "opaque-lookup"
         namespace = node.value
         while isinstance(namespace, ast.NamedExpr):
             namespace = namespace.value
         if isinstance(namespace, ast.Name):
             candidates = imported_modules.get(namespace.id, ())
-            if (
-                node.attr in {"attrgetter", "methodcaller"}
-                and PYTHON_OPERATOR_NAMESPACES.intersection(candidates)
-            ) or (
-                node.attr in {"vars", "exec", "eval"}
-                and (namespace.id == "builtins" or "builtins" in candidates)
+            if any(
+                node.attr in members
+                and (module in candidates or (module == "builtins" and namespace.id == module))
+                for module, members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.items()
             ):
                 return "opaque-lookup"
     if _is_builtin_getattr_reference(node, imported_modules, {}):
@@ -2846,7 +2867,7 @@ def _python_capability_projection(
 
     capability_fallback_names = {
         *MODULE_NAMESPACE_ACCESSORS, "__builtins__", "__import__", "builtins",
-        "sys", "getattr", "object", "exec", "eval",
+        "sys", "getattr", "object", *PYTHON_DYNAMIC_EXECUTION_BUILTINS,
     }
     parents = {
         id(child): parent
@@ -3016,7 +3037,7 @@ def _python_dynamic_namespace_values_projected(
     for name, candidates in imported_modules.items():
         if {"builtins.__import__", "importlib.import_module"}.intersection(candidates):
             importers.add(name)
-        for namespace in ("builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES):
+        for namespace in PYTHON_CAPABILITY_NAMESPACES:
             if candidates[:1] == (namespace,):
                 namespaces.setdefault(name, set()).add(namespace)
         if any(f"builtins.{accessor}" in candidates for accessor in MODULE_NAMESPACE_ACCESSORS):
@@ -3026,7 +3047,7 @@ def _python_dynamic_namespace_values_projected(
     for node in nodes:
         if isinstance(node, ast.Import):
             for imported in node.names:
-                if imported.name in {"builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES}:
+                if imported.name in PYTHON_CAPABILITY_NAMESPACES:
                     namespaces.setdefault(imported.asname or imported.name, set()).add(imported.name)
         elif isinstance(node, ast.ImportFrom):
             for imported in node.names:
@@ -3102,7 +3123,7 @@ def _python_dynamic_namespace_values_projected(
             )
             target_name = _static_string_expression(target) if target is not None else None
             if target_name is None or target_name.split(".", 1)[0] in {
-                "builtins", "sys", "importlib", *PYTHON_OPERATOR_NAMESPACES,
+                *PYTHON_CAPABILITY_NAMESPACES,
                 *PYTHON_RUNTIME_ABORT_MODULES,
             }:
                 known.add(key)
@@ -3145,9 +3166,9 @@ def _python_dynamic_namespace_values_projected(
             kinds = namespaces.get(value.id, set()) if isinstance(value, ast.Name) else set()
             if ("builtins" in kinds and node.attr in MODULE_NAMESPACE_ACCESSORS) or (
                 "sys" in kinds and node.attr == "modules"
-            ) or (
-                PYTHON_OPERATOR_NAMESPACES.intersection(kinds)
-                and node.attr in {"attrgetter", "methodcaller"}
+            ) or any(
+                namespace in kinds and node.attr in members
+                for namespace, members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.items()
             ):
                 known.add(key)
         if not isinstance(node, (ast.stmt, ast.Module)):
@@ -16663,6 +16684,20 @@ def _python310_dependency_identity_migration_is_exact_transition(
     )
 
 
+def _python_runtime_consumer_key(ref: str) -> str:
+    """Remove only terminal generated metadata, never text inside a path."""
+
+    head, separator, occurrence = ref.rpartition("#")
+    if not separator or re.fullmatch(r"[1-9][0-9]*", occurrence) is None:
+        head, separator, occurrence = ref, "", ""
+    key = re.sub(
+        r"(?:::parametrize-sha256:[0-9a-f]{64})?(?:::autouse-sha256:[0-9a-f]{64})?$",
+        "",
+        head,
+    )
+    return key + (separator + occurrence if separator else "")
+
+
 def removed_declarations(
     repo: Path,
     base_sha: str,
@@ -16854,10 +16889,7 @@ def removed_declarations(
         base_runtime_import_source_resolver,
     )
 
-    def consumer_key(ref: str) -> str:
-        head, separator, occurrence = ref.partition("#")
-        key = head.split("::parametrize-sha256:", 1)[0].split("::autouse-sha256:", 1)[0]
-        return key + (separator + occurrence if separator else "")
+    consumer_key = _python_runtime_consumer_key
 
     for path in changed_paths:
         prior = _base_text(repo, base_sha, path)

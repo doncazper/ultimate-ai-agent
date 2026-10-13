@@ -30,9 +30,10 @@ def _install_subject(
     current_subject: str = ("from ultimate_ai_agent.new_child import runtime_value\n"),
     additions: dict[str, str] | None = None,
     base_additions: dict[str, str] | None = None,
+    test_path: str = TEST_PATH,
 ) -> tuple[dict[str, str], dict[str, str]]:
     base = {
-        TEST_PATH: test_source,
+        test_path: test_source,
         PACKAGE_PATH: "",
         SUBJECT_PATH: base_subject,
         # The real comparison base already completed both historical identity
@@ -55,9 +56,9 @@ def _install_subject(
         ),
     }
     _write_sources(root, current)
-    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (TEST_PATH,))
+    monkeypatch.setattr(guard, "discover_test_files", lambda _repo: (test_path,))
     monkeypatch.setattr(
-        guard, "_changed_test_paths", lambda _repo, _base_sha: (TEST_PATH,)
+        guard, "_changed_test_paths", lambda _repo, _base_sha: (test_path,)
     )
     monkeypatch.setattr(
         guard, "_base_file_paths", lambda _repo, _base_sha: frozenset(base)
@@ -4848,6 +4849,159 @@ def test_dynamic_fixture_activation_cannot_erase_retained_test(
     assert admitted == {}
 
 
+@pytest.mark.parametrize(
+    ("uses_fixture", "child"),
+    [
+        pytest.param(False, "import types\ndef runtime_value(case):\n    return types.FunctionType(compile(\"case.skipTest('unavailable')\", '<fixture>', 'exec'), {'case': case})()\n", id="compiled-function"),
+        pytest.param(False, "import types\nfrom builtins import compile as build\ndef runtime_value(case):\n    return types.FunctionType(build(\"case.skipTest('unavailable')\", '<fixture>', 'exec'), {'case': case})()\n", id="imported-compiler"),
+        pytest.param(False, "import types\ndef runtime_value(case):\n    build = compile\n    return types.FunctionType(build(\"case.skipTest('unavailable')\", '<fixture>', 'exec'), {'case': case})()\n", id="escaped-compiler"),
+        pytest.param(False, "import types\nimport builtins\ndef runtime_value(case):\n    return types.FunctionType(getattr(builtins, 'com' + 'pile')(\"case.skipTest('unavailable')\", '<fixture>', 'exec'), {'case': case})()\n", id="reflected-compiler"),
+        pytest.param(False, "from types import FunctionType as build\ndef runtime_value(code): return build(code, {})()\n", id="imported-function-constructor"),
+        pytest.param(False, "import types as library\nselected = library\ndef runtime_value(code): return selected.LambdaType(code, {})()\n", id="aliased-lambda-constructor"),
+        pytest.param(False, "import types\ndef runtime_value(code): return getattr(types, 'Function' + 'Type')(code, {})()\n", id="reflected-function-constructor"),
+        pytest.param(False, "import importlib\ndef runtime_value(code): return importlib.import_module('types').FunctionType(code, {})()\n", id="dynamic-function-constructor"),
+        pytest.param(False, "from types import CodeType as build\ndef runtime_value(parts): return build(*parts)\n", id="code-constructor"),
+        pytest.param(False, "def runtime_value(function): return type(function)(function.__code__, {})()\n", id="function-code-carrier"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    request.node.ihook.pytest_runtest_setup(item=request.node)\n    return 1\n", id="node-hook-dispatch"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    dispatch = request.node.ihook\n    return dispatch.pytest_runtest_setup(item=request.node)\n", id="hook-proxy-alias"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return request.config.hook.pytest_runtest_setup(item=request.node)\n", id="config-hook-dispatch"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return getattr(request.node, 'i' + 'hook').pytest_runtest_setup(item=request.node)\n", id="reflected-hook-proxy"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return getattr(request.config.hook, 'pytest_' + 'runtest_setup')(item=request.node)\n", id="reflected-hook-dispatch"),
+        pytest.param(True, "def runtime_value(request):\n    dispatch = request.config.hook.pytest_runtest_setup\n    request.node.add_marker('skip')\n    return dispatch(item=request.node)\n", id="hook-callable-alias"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return request.config.pluginmanager.subset_hook_caller('pytest_runtest_setup', ())(item=request.node)\n", id="hook-caller-factory"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return getattr(request.config.pluginmanager, 'subset_' + 'hook_caller')('pytest_runtest_setup', ())(item=request.node)\n", id="reflected-hook-caller-factory"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    manager = request.config.pluginmanager\n    for caller in manager.get_hookcallers(manager.get_plugin('skipping')):\n        if caller.name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="hook-caller-enumeration"),
+        pytest.param(False, "import codeop\ndef runtime_value(case):\n    code = codeop.Compile()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-compile"),
+        pytest.param(False, "import codeop\ndef runtime_value(case):\n    code = codeop.CommandCompiler()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-command-compiler"),
+        pytest.param(False, "import codeop\ndef runtime_value(case):\n    code = codeop.compile_command(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-compile-command"),
+        pytest.param(False, "from codeop import Compile as build\ndef runtime_value(case):\n    code = build()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-imported-factory"),
+        pytest.param(False, "import codeop\nselected = codeop\ndef runtime_value(case):\n    code = selected.Compile()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-module-alias"),
+        pytest.param(False, "import codeop\ndef runtime_value(case):\n    code = getattr(codeop, 'Com' + 'pile')()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-reflected-factory"),
+        pytest.param(False, "import importlib\ndef runtime_value(case):\n    code = importlib.import_module('codeop').Compile()(\"case.skipTest('unavailable')\", '<fixture>', 'exec')\n    return type(lambda: None)(code, {'case': case})()\n", id="codeop-dynamic-factory"),
+        pytest.param(True, "import inspect\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in inspect.getmembers(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-hook-members"),
+        pytest.param(True, "import inspect\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in inspect.getmembers_static(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-static-hook-members"),
+        pytest.param(True, "from inspect import getmembers as members\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in members(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-imported-getter"),
+        pytest.param(True, "import inspect\nselected = inspect\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in selected.getmembers(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-module-alias"),
+        pytest.param(True, "import inspect\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    return inspect.getattr_static(request.config.hook, 'pytest_runtest_setup')(item=request.node)\n", id="inspect-static-getter"),
+        pytest.param(True, "import inspect\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in getattr(inspect, 'get' + 'members')(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-reflected-getter"),
+        pytest.param(True, "import importlib\ndef runtime_value(request):\n    request.node.add_marker('skip')\n    for name, caller in importlib.import_module('inspect').getmembers(request.config.hook):\n        if name == 'pytest_runtest_setup': return caller(item=request.node)\n", id="inspect-dynamic-getter"),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_compiled_code_and_hook_capabilities_cannot_erase_retained_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    uses_fixture: bool, child: str, nested: bool, snapshot: bool,
+) -> None:
+    baseline = "def runtime_value(value): return 1\n"
+    additions = {CHILD_PATH: child}
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": child,
+    }
+    if nested:
+        additions[CHILD_PATH] = "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        additions[GRANDCHILD_PATH] = child
+        current["ultimate_ai_agent.new_child"] = additions[CHILD_PATH]
+        current["ultimate_ai_agent.new_grandchild"] = child
+    _install_subject(
+        tmp_path, monkeypatch, _capability_review_consumer_source(uses_fixture),
+        base_subject=baseline, additions=additions,
+    )
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": baseline}, current,
+        ("ultimate_ai_agent.subject",),
+    ) == {}
+    _assert_capability_review_retirement(tmp_path, snapshot, uses_fixture)
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        "def runtime_value(source): return compile(source, '<fixture>', 'exec')\n",
+        "from builtins import compile as build\ndef runtime_value(source): return build(source, '<fixture>', 'exec')\n",
+        "def runtime_value(source):\n    build = compile\n    return build(source, '<fixture>', 'exec')\n",
+        "import builtins\ndef runtime_value(source): return getattr(builtins, 'com' + 'pile')(source, '<fixture>', 'exec')\n",
+        "compile: object\ndef runtime_value(source): return compile(source, '<fixture>', 'exec')\n",
+        "if False: compile = None\ndef runtime_value(source): return compile(source, '<fixture>', 'exec')\n",
+        "compile = None\ndel compile\ndef runtime_value(source): return compile(source, '<fixture>', 'exec')\n",
+    ],
+    ids=["builtin", "import", "alias", "reflected", "annotation", "conditional", "deleted"],
+)
+def test_compilation_capability_is_independent_of_constructor_detection(child: str) -> None:
+    assert guard._python_runtime_abort_reference_present(
+        "ultimate_ai_agent.new_child", f"path={CHILD_PATH}\n{child}"
+    )
+
+
+@pytest.mark.parametrize("suffix", ["runtest_setup", "extension_hook_with_a_long_name"])
+def test_reflected_hook_dispatch_prefix_is_retained_across_literal_bounds(suffix: str) -> None:
+    for selector in (repr("pytest_" + suffix), f"'pytest_' + {suffix!r}"):
+        child = f"def runtime_value(hooks): return getattr(hooks, {selector})()\n"
+        assert guard._python_runtime_abort_reference_present(
+            "ultimate_ai_agent.new_child", f"path={CHILD_PATH}\n{child}"
+        )
+
+
+@pytest.mark.parametrize(
+    "test_path",
+    ["tests/test_sample.py", "tests/test_#sample.py", "tests/test_#2.py", "tests/#group/test_sample.py"],
+    ids=["ordinary", "hash-file", "numeric-hash-file", "hash-directory"],
+)
+@pytest.mark.parametrize("posture", ["plain", "parameterized", "autouse", "both"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_hash_paths_retain_abort_sensitive_consumer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    test_path: str, posture: str, snapshot: bool,
+) -> None:
+    source = SKIP_HELPER_TEST
+    if posture in {"parameterized", "both"}:
+        source = source.replace(
+            "def test_case():",
+            "@pytest.mark.parametrize('value', [1])\ndef test_case(value):",
+        )
+    if posture in {"autouse", "both"}:
+        source = source.replace(
+            "def require_value():",
+            "@pytest.fixture(autouse=True)\ndef ready(): return 1\ndef require_value():",
+        )
+    _install_subject(
+        tmp_path, monkeypatch, source, test_path=test_path,
+        additions={CHILD_PATH: "def runtime_value(): return None\n"},
+    )
+    try:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        removed = guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    except guard.TestCorpusGuardError as error:
+        # The pre-existing collection-effect proof may conservatively refuse
+        # this combined decorator posture. It must never silently erase it.
+        assert posture == "both"
+        assert str(error) == "definition-time object mutation cannot be inventoried safely"
+    else:
+        assert len(removed) == 1
+        assert removed[0].startswith(f"{test_path}::test_case")
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["tests/test_#sample.py", "tests/#2/test_#sample.py", "tests/test_::parametrize-sha256:" + "c" * 64 + ".py"],
+    ids=["hash-file", "multiple-hashes", "interior-metadata-spelling"],
+)
+@pytest.mark.parametrize("name", ["test_case", "TestCase::test_case"])
+@pytest.mark.parametrize("metadata", ["", "parameter", "autouse", "both"])
+@pytest.mark.parametrize("occurrence", ["", "#2", "#12"])
+def test_consumer_key_parses_only_terminal_generated_suffixes(
+    path: str, name: str, metadata: str, occurrence: str,
+) -> None:
+    key = f"{path}::{name}"
+    suffix = ""
+    if metadata in {"parameter", "both"}:
+        suffix += "::parametrize-sha256:" + "a" * 64
+    if metadata in {"autouse", "both"}:
+        suffix += "::autouse-sha256:" + "b" * 64
+    assert guard._python_runtime_consumer_key(key + suffix + occurrence) == key + occurrence
+
+
 @pytest.mark.parametrize("formal", ["vars", "globals", "locals", "builtins", "sys"])
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
 def test_lexically_shadowed_namespace_formals_remain_actually_admissible(
@@ -4955,6 +5109,8 @@ def test_dynamic_capability_aliases_and_reflected_selectors_are_not_admitted(
         pytest.param(False, "def runtime_value(case): exec(\"case.skipTest('unavailable')\")\n", id="builtin-exec"),
         pytest.param(False, "def runtime_value(case): eval(\"case.skipTest('unavailable')\")\n", id="builtin-eval"),
         pytest.param(True, "def runtime_value(request): return request.getfixturevalue('unavailable')\n", id="fixture-activation"),
+        pytest.param(False, "import types\ndef runtime_value(case): return types.FunctionType(compile(\"case.skipTest('unavailable')\", '<fixture>', 'exec'), {'case': case})()\n", id="compiled-function"),
+        pytest.param(True, "def runtime_value(request):\n    request.node.add_marker('skip')\n    return request.node.ihook.pytest_runtest_setup(item=request.node)\n", id="hook-dispatch"),
     ],
 )
 @pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed-existing-root"])
@@ -5105,7 +5261,7 @@ def test_possible_namespace_fallback_cannot_erase_retained_test(
         assert len(removed) == 1
 
 
-@pytest.mark.parametrize("formal", ["exec", "eval", "vars", "getattr"])
+@pytest.mark.parametrize("formal", ["exec", "eval", "compile", "vars", "getattr"])
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
 def test_callable_formal_does_not_regain_builtin_capability_after_projection(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, formal: str, snapshot: bool,
@@ -5325,8 +5481,11 @@ def test_reflected_runtime_namespace_selectors_share_direct_property_boundary(
         "from _operator import getitem\n"
         "def runtime_value(case): return getitem([1], 0)\n",
         "def runtime_value(case): return getattr(case, 'value', 1)\n",
+        "import re\ndef runtime_value(case): return len(re.compile('x').findall('x'))\n",
+        "import types\ndef runtime_value(case): return types.SimpleNamespace(value=1).value\n",
+        "import inspect\ndef runtime_value(case): return int(inspect.isfunction(lambda: None))\n",
     ],
-    ids=["ordinary-importer-alias", "explicit-operator-getitem", "native-operator-getitem", "ordinary-getattr"],
+    ids=["ordinary-importer-alias", "explicit-operator-getitem", "native-operator-getitem", "ordinary-getattr", "regular-expression-compile", "ordinary-types-member", "ordinary-inspect-member"],
 )
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
 def test_namespace_repair_preserves_proven_ordinary_runtime_sources(
