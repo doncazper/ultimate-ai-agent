@@ -150,6 +150,27 @@ VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
         "a662453251a3eea9fb2786a889845842a65e47b93b0bfa542c809f16e641e9c3",
     ),
 }
+AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH = {
+    "pyproject.toml": (
+        "1a443b75bdfeae0310eed6441f3ec69372a1a9c83eecd9cd668ee58772861b72",
+        "1a443b75bdfeae0310eed6441f3ec69372a1a9c83eecd9cd668ee58772861b72",
+    ),
+    "uv.lock": (
+        "1ffdf1c76f48a977bbaa5860eab1d0de700f72e3441fff372a60f9c3f4f5ebbb",
+        "c9bb5a143fd2f27cea9f6942ba664355d186fd5311117f39c1932b39bb018633",
+    ),
+    "apps/control-center/package.json": (
+        "af9d83f97dd930c95f27322af53085f32f0dca000c59c7f8702ca975b0e03b9c",
+        "af9d83f97dd930c95f27322af53085f32f0dca000c59c7f8702ca975b0e03b9c",
+    ),
+    "apps/control-center/package-lock.json": (
+        "a662453251a3eea9fb2786a889845842a65e47b93b0bfa542c809f16e641e9c3",
+        "1c6fcbf5946d250e860c78393ec942bcedc46e76340eba0a07d2f044d4b87d3a",
+    ),
+}
+AUDIT_RECOVERY_DEPENDENCY_LOCK_PATHS = frozenset(
+    {"uv.lock", "apps/control-center/package-lock.json"}
+)
 PARAMETER_DEPENDENCY_IDENTITY_MIGRATION_MARKER = (
     "uaa.test_corpus.parameter_dependency_identity.v2"
 )
@@ -12227,6 +12248,33 @@ def _safe_vitest_security_dependency_alignment_paths(
     return expected_paths
 
 
+def _safe_audit_recovery_dependency_alignment_paths(
+    *,
+    current_by_path: dict[str, str],
+    prior_by_path: dict[str, str],
+) -> set[str]:
+    """Bind the exact urllib3, Undici and source-map-js lock rotation.
+
+    Both locks must rotate together, with both dependency manifests unchanged
+    at their reviewed bytes. No package range, unrelated lock record, runner,
+    plugin or collection change is admitted by this historical transition.
+    """
+    expected_paths = set(AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH)
+    if set(current_by_path) != expected_paths or set(prior_by_path) != expected_paths:
+        return set()
+    for path, (prior_digest, current_digest) in (
+        AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items()
+    ):
+        if (
+            hashlib.sha256(prior_by_path[path].encode("utf-8")).hexdigest()
+            != prior_digest
+            or hashlib.sha256(current_by_path[path].encode("utf-8")).hexdigest()
+            != current_digest
+        ):
+            return set()
+    return set(AUDIT_RECOVERY_DEPENDENCY_LOCK_PATHS)
+
+
 def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
     runner_dependencies = _pytest_runner_dependency_paths(repo)
     change_roots = [
@@ -12316,6 +12364,19 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
                 prior_by_path=prior_dependency_by_path,
             )
         )
+    safe_audit_recovery_paths: set[str] = set()
+    if AUDIT_RECOVERY_DEPENDENCY_LOCK_PATHS <= all_changed:
+        safe_audit_recovery_paths = _safe_audit_recovery_dependency_alignment_paths(
+            current_by_path={
+                path: _read_worktree_text(repo, path) if (repo / path).is_file() else ""
+                for path in AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+            },
+            prior_by_path={
+                path: _base_text(repo, base_sha, path) or ""
+                for path in AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+            },
+        )
+        safe_dependency_paths.update(safe_audit_recovery_paths)
     for path in all_changed:
         if not _is_python_test_path(path):
             continue
@@ -12513,6 +12574,7 @@ def _changed_test_paths(repo: Path, base_sha: str) -> tuple[str, ...]:
             for path in frontend_dependency_paths
         },
     )
+    safe_frontend_dependency_paths.update(safe_audit_recovery_paths)
     for path in frontend_dependency_paths:
         current = _read_worktree_text(repo, path) if (repo / path).is_file() else ""
         prior = _base_text(repo, base_sha, path) or ""
