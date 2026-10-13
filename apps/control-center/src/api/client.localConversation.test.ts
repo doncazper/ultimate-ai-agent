@@ -1,10 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  requestLocalConversationTurn, setLocalApiBearerForSession,
+  requestLocalConversationTurn as requestBoundTurn, setLocalApiBearerForSession,
+  inspectLocalModelsRoute,
   type LocalConversationMessage,
 } from "./client";
 
 const modelId = "fixture-local-model";
+const binding = {
+  snapshotRef: "proof-ref:local-conversation",
+  backendRevisionRef: "commit-ref:git:local-conversation",
+  backendInstanceRef: "backend-instance-ref:local-conversation",
+};
+function requestLocalConversationTurn(model: string, history: readonly LocalConversationMessage[]) {
+  return requestBoundTurn(model, history, binding);
+}
 const messages: LocalConversationMessage[] = [{ role: "user", content: "x".repeat(8) }];
 function completion() {
   return {
@@ -40,6 +49,8 @@ describe("explicit local conversation turn", () => {
     const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/v1/chat/completions");
     expect(new Headers(init.headers).has("Authorization")).toBe(true);
+    expect(new Headers(init.headers).get("X-UAA-Expected-Backend-Instance-Ref")).toBe(binding.backendInstanceRef);
+    expect(new Headers(init.headers).get("X-UAA-Expected-Backend-Truth-Ref")).toBe(binding.snapshotRef);
     expect(new Headers(init.headers).get("X-UAA-Idempotency-Key"))
       .toMatch(/^idempotency-ref:control-center-chat:/);
     expect(JSON.parse(String(init.body))).toEqual({
@@ -51,6 +62,23 @@ describe("explicit local conversation turn", () => {
     setLocalApiBearerForSession(null);
     await expect(requestLocalConversationTurn(modelId, messages)).rejects.toThrow(/authenticated local launcher/);
     expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("requires backend provenance before sending and separates M151 from M164 readiness", async () => {
+    const fetcher = stubReply();
+    await expect(requestBoundTurn(modelId, messages, null)).rejects.toThrow(/authenticated/);
+    expect(fetcher).not.toHaveBeenCalled();
+    const models = { data: [{ id: modelId }], uaa_safety: {
+      milestone: "M164", loopback_only: true, tools_enabled: false,
+      functions_enabled: false, streaming_enabled: false, openwebui_is_agent_brain: false,
+    } };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(models))));
+    expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("m164");
+    models.uaa_safety.tools_enabled = true;
+    expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("unavailable");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      data: [{ id: "uaa-safe-local" }], uaa_safety: { milestone_ref: "M151" },
+    }))));
+    expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("mock_only");
   });
   it.each([401, 403, 422, 429, 500])("keeps HTTP %s errors content-free without retry", async (status) => {
     const reply = completion();

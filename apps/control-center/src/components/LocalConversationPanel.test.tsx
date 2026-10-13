@@ -11,13 +11,19 @@ const ready: LocalModelsInspectionStatus = {
   state: "ready", routeRef: "/v1/models", checkedAt: "2026-10-13T00:00:00Z",
   safeMessage: "Local model ready.", modelIds: ["fixture-local-model"],
   selectedModelId: "fixture-local-model", reasonCodes: ["LOCAL_MODELS_ROUTE_READY"],
+  conversationContract: "m164",
+};
+const binding = {
+  snapshotRef: "proof-ref:local-conversation",
+  backendRevisionRef: "commit-ref:git:local-conversation",
+  backendInstanceRef: "backend-instance-ref:local-conversation",
 };
 const reply = {
   modelId: "fixture-local-model", message: { role: "assistant", content: "y".repeat(12) },
   finishReason: "stop",
 };
 function setup(models = ready) {
-  return render(<LocalConversationPanel models={models} onReconnect={vi.fn()} />);
+  return render(<LocalConversationPanel models={models} binding={binding} onReconnect={vi.fn()} />);
 }
 function enter(value: string) {
   fireEvent.change(screen.getByLabelText("Message"), { target: { value } });
@@ -29,7 +35,7 @@ beforeEach(() => {
 });
 describe("main local conversation", () => {
   it("keeps safety details reachable without crowding the initial conversation", () => {
-    render(<LocalConversationPanel models={ready} onReconnect={vi.fn()}><h2>Diagnostic proof</h2></LocalConversationPanel>);
+    render(<LocalConversationPanel models={ready} binding={binding} onReconnect={vi.fn()}><h2>Diagnostic proof</h2></LocalConversationPanel>);
     expect(screen.getByRole("heading", { name: "Talk to your model" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Diagnostic proof" })).not.toBeVisible();
     fireEvent.click(screen.getByText("Details", { selector: "summary" }));
@@ -39,7 +45,7 @@ describe("main local conversation", () => {
   });
   it("reconnects only on command and uses the real namespaced model value", () => {
     const reconnect = vi.fn();
-    render(<LocalConversationPanel models={{ ...ready, selectedModelId: "qwen/qwen3.8-27b", modelIds: ["qwen/qwen3.8-27b"] }} onReconnect={reconnect} />);
+    render(<LocalConversationPanel models={{ ...ready, selectedModelId: "qwen/qwen3.8-27b", modelIds: ["qwen/qwen3.8-27b"] }} binding={binding} onReconnect={reconnect} />);
     expect(screen.getByLabelText("Local model")).toHaveValue("qwen/qwen3.8-27b");
     expect(screen.getByRole("option", { name: "Qwen 3.8 27B" })).toBeInTheDocument();
     expect(reconnect).not.toHaveBeenCalled();
@@ -72,6 +78,7 @@ describe("main local conversation", () => {
     expect(api.requestLocalConversationTurn.mock.calls[1]).toEqual([
       "fixture-local-model",
       [{ role: "user", content: "x".repeat(8) }, reply.message, { role: "user", content: "z".repeat(6) }],
+      binding,
     ]);
   });
   it("keeps the draft on failure and never retries automatically", async () => {
@@ -122,5 +129,47 @@ describe("main local conversation", () => {
     fireEvent.click(screen.getByRole("button", { name: "New chat" }));
     expect(screen.queryByText(reply.message.content)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Message")).toHaveValue("");
+  });
+  it("keeps mock-only and unknown gateway contracts closed without a model call", () => {
+    const view = setup({ ...ready, conversationContract: "mock_only" });
+    enter("x".repeat(8));
+    expect(screen.getByText(/gateway is mock-only/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    view.rerender(<LocalConversationPanel models={{ ...ready, conversationContract: undefined }} binding={binding} onReconnect={vi.fn()} />);
+    fireEvent.keyDown(screen.getByLabelText("Message"), { key: "Enter" });
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(api.requestLocalConversationTurn).not.toHaveBeenCalled();
+  });
+  it("clears prior messages and draft on a same-model backend replacement", async () => {
+    const view = setup();
+    enter("x".repeat(8));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText(reply.message.content);
+    enter("z".repeat(6));
+    view.unmount();
+    const replacement = { ...binding, backendInstanceRef: "backend-instance-ref:replacement" };
+    render(<LocalConversationPanel models={ready} binding={replacement} onReconnect={vi.fn()} />);
+    expect(screen.queryByText(reply.message.content)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toHaveValue("");
+    enter("n".repeat(5));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(api.requestLocalConversationTurn).toHaveBeenCalledTimes(2));
+    expect(api.requestLocalConversationTurn.mock.calls[1]).toEqual([
+      "fixture-local-model", [{ role: "user", content: "n".repeat(5) }], replacement,
+    ]);
+  });
+  it("discards a late reply after backend replacement and blocks a missing binding", async () => {
+    let finish!: (value: typeof reply) => void;
+    api.requestLocalConversationTurn.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const view = setup();
+    enter("x".repeat(8));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    view.rerender(<LocalConversationPanel models={ready} binding={null} onReconnect={vi.fn()} />);
+    await act(async () => finish(reply));
+    expect(screen.queryByText(reply.message.content)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Message")).toHaveValue("");
+    enter("z".repeat(6));
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(api.requestLocalConversationTurn).toHaveBeenCalledTimes(1);
   });
 });

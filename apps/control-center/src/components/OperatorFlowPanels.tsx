@@ -271,7 +271,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
 
   useEffect(() => {
     let cancelled = false;
-    void inspectLocalModelsRoute().then((status) => {
+    void inspectLocalModelsRoute(mutationBinding).then((status) => {
       if (!cancelled) {
         setModels(status);
       }
@@ -290,7 +290,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     setChatReceipt(undefined);
     setHandoffReceipt(undefined);
     try {
-      const nextProbe = await requestRedactedLocalChatProbe(selectedModelId);
+      const nextProbe = await requestRedactedLocalChatProbe(selectedModelId, mutationBinding);
       setProbe(nextProbe);
       if (nextProbe.state === "ready") {
         setReceiptPending(true);
@@ -348,7 +348,8 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="chat-operator-surface" aria-label="Chat">
       <LocalConversationPanel
         models={models}
-        onReconnect={() => { void inspectLocalModelsRoute().then(setModels); }}
+        binding={mutationBinding}
+        onReconnect={() => { void inspectLocalModelsRoute(mutationBinding).then(setModels); }}
       >
       <OperatorHeader
         eyebrow="Local operator flow"

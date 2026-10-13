@@ -99,7 +99,7 @@ readiness, or production authority.
 
 UI surface direction: Control Center / Founder Command Center is the
 first-party product cockpit for Today, Inbox, Plans, Actions, Memory, Evidence,
-Settings, Models, and future first-party Chat. OpenWebUI remains a supported
+Settings, Models, and the implemented tab-local M164 Chat client. OpenWebUI remains a supported
 local/dev conversational shell and compatibility surface for governed `/v1`
 smoke, llama.cpp shell testing, and developer chat. OpenWebUI must not become
 the source of product state or the destination for wiring every UAA workflow.

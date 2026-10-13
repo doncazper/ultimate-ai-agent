@@ -44,6 +44,7 @@ from ultimate_ai_agent.api.idempotency import (
 from ultimate_ai_agent.api.local_auth import (
     LOCAL_API_AUTH_POLICY_REF,
     local_api_auth_failure,
+    local_api_authorized,
 )
 from ultimate_ai_agent.api.manifest import (
     build_api_manifest,
@@ -1220,6 +1221,7 @@ def _require_openwebui_local_test_gateway(
 def _require_m164_llama_cpp_gateway(
     authorization: str | None,
     readiness: LocalModelGatewayReadiness | None = None,
+    control_center_request: Request | None = None,
 ) -> None:
     gateway_readiness = readiness or inspect_local_model_gateway()
     if not gateway_readiness.llama_cpp_gateway_enabled:
@@ -1227,17 +1229,44 @@ def _require_m164_llama_cpp_gateway(
             status_code=403,
             detail="M164 llama.cpp gateway is disabled. Set UAA_LLAMA_CPP_GATEWAY_ENABLED=1 for local runtime use.",
         )
-    if not llama_cpp_gateway_authorized(authorization):
+    if llama_cpp_gateway_authorized(authorization):
+        return
+    # The first-party shell uses its existing local session, never the gateway
+    # or provider secret. This exact M164 lane additionally requires a current
+    # backend-truth envelope; dev auth bypass cannot grant model access.
+    if (
+        control_center_request is not None
+        and gateway_readiness.llama_cpp_bearer_configured
+        and local_api_authorized(authorization)
+    ):
+        headers = control_center_request.headers
+        identity = build_identity()
+        expected_truth = headers.get(_EXPECTED_BACKEND_TRUTH_HEADER, "")
+        if (
+            headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER) == _CONTROL_CENTER_MUTATION_BINDING_VERSION
+            and identity.source_revision_bound
+            and headers.get(_EXPECTED_BACKEND_REVISION_HEADER) == identity.commit_ref
+            and headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER) == backend_instance_ref()
+            and _BACKEND_TRUTH_REF_RE.fullmatch(expected_truth) is not None
+            and backend_truth_envelope_is_current(
+                envelope_integrity_ref=expected_truth,
+                backend_revision_ref=identity.commit_ref,
+                expected_backend_instance_ref=backend_instance_ref(),
+            )
+        ):
+            return
+        raise HTTPException(status_code=409, detail="Local conversation requires current backend provenance.")
+    else:
         raise HTTPException(
             status_code=401,
             detail="M164 llama.cpp gateway requires the configured local bearer value.",
         )
 
 @app.get("/v1/models")
-def get_v1_models(authorization: str | None = Header(default=None)) -> Response:
+def get_v1_models(http_request: Request, authorization: str | None = Header(default=None)) -> Response:
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
-        _require_m164_llama_cpp_gateway(authorization, readiness)
+        _require_m164_llama_cpp_gateway(authorization, readiness, http_request)
         return build_m164_local_models_response(build_m164_gateway_model_from_env())
     _require_openwebui_local_test_gateway(authorization, readiness)
     return build_openwebui_local_models_response()
@@ -1245,12 +1274,13 @@ def get_v1_models(authorization: str | None = Header(default=None)) -> Response:
 @app.post("/v1/chat/completions")
 def post_v1_chat_completions(
     request: V1ChatCompletionAPIRequest,
+    http_request: Request,
     authorization: str | None = Header(default=None),
 ) -> Response:
     payload = request.model_dump(mode="json", exclude_none=True)
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
-        _require_m164_llama_cpp_gateway(authorization, readiness)
+        _require_m164_llama_cpp_gateway(authorization, readiness, http_request)
         try:
             local_request = M164ChatCompletionRequest(**payload)
             turn_harness_binding = build_chat_turn_harness_binding(

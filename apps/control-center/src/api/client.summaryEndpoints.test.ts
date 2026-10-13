@@ -104,6 +104,18 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     "X-UAA-Backend-Instance-Ref": chatBinding.backendInstanceRef,
   };
 
+  it.each([
+    API_ENDPOINTS.controlCenterDashboard, API_ENDPOINTS.approvalSummary,
+    API_ENDPOINTS.runtimeReadinessSummary, API_ENDPOINTS.foundationGateSummary,
+    API_ENDPOINTS.controlCenterSettingsStatus, API_ENDPOINTS.founderTodaySummary,
+    API_ENDPOINTS.founderAgentLoopThread,
+  ])("fails closed without required Chat dependency %s", async (missing) => {
+    const fixtures = baseRouteData();
+    delete fixtures[missing];
+    stubControlCenterFetch(fixtures, chatHeaders);
+    await expect(loadControlCenterData(chatBinding, "chat")).rejects.toThrow();
+  });
+
   it("loads only the seven Chat dependencies without promoting unread routes", async () => {
     stubControlCenterFetch(baseRouteData(), chatHeaders);
     const result = await loadControlCenterData(chatBinding, "chat");
@@ -115,13 +127,6 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     for (const route of ["/runtime", "/memory", "/crm", "/studio", "/work-board", "/actions", "/evidence"]) {
       expect(result.routeStates[route].state).not.toBe("backend_owned");
     }
-  });
-
-  it.each(chatDependencies)("fails closed without required Chat dependency %s", async (missing) => {
-    const fixtures = baseRouteData();
-    delete fixtures[missing];
-    stubControlCenterFetch(fixtures, chatHeaders);
-    await expect(loadControlCenterData(chatBinding, "chat")).rejects.toThrow();
   });
 
   it("rejects unbound or substituted Chat ownership and unsafe authority payloads", async () => {

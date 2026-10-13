@@ -128,6 +128,19 @@ conversation; New chat starts a fresh transient display. Reloading loses this
 content. The separate content-free checkpoint service still never accepts or
 stores message bodies and does not itself grant Send authority.
 
+The normal launcher hands off only the existing Control Center session. The
+M164 gateway accepts that local API bearer only with a current backend-truth
+envelope, exact revision/process binding, explicit gateway enablement, and a
+configured gateway key. The gateway key and backend/provider key remain on the
+server; they are not placed in browser URLs or JavaScript. Existing gateway-key
+clients retain their original exact M164 contract. No new routes, operation IDs,
+general provider authority, or auth-bypass capability are added.
+
+Send is available only for the M164 model-list safety contract. The M151
+deterministic test shell remains visibly mock-only, even when its model list is
+reachable. Backend revision/process replacement clears the transient transcript
+and draft; late replies from the previous backend cannot repopulate them.
+
 Fresh installations can open local Chat before completing an unrelated founder
 workflow. The first-run exception still requires a valid revision-bound backend
 envelope and backend-owned route data; stale, invalid, unavailable-storage,

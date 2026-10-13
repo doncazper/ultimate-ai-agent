@@ -4,6 +4,7 @@ import {
   LOCAL_CONVERSATION_CHARACTER_LIMIT,
   LOCAL_CONVERSATION_MESSAGE_LIMIT,
   requestLocalConversationTurn,
+  type BackendTruthReadBinding,
   type LocalConversationMessage,
 } from "../api/client";
 import type { LocalModelsInspectionStatus } from "../api/types";
@@ -12,6 +13,7 @@ import { NorthStarIcon } from "./NorthStarIcon";
 // Transient input and returned display text only. The Python gateway owns the
 // turn contract, model authorization and safety receipt. Never persist bodies.
 interface ConversationDisplay {
+  backendKey: string;
   modelId: string;
   messages: LocalConversationMessage[];
   draft: string;
@@ -19,8 +21,8 @@ interface ConversationDisplay {
   notice: string;
 }
 
-const emptyConversation = (): ConversationDisplay => ({
-  modelId: "", messages: [], draft: "", sending: false, notice: "",
+const emptyConversation = (backendKey = ""): ConversationDisplay => ({
+  backendKey, modelId: "", messages: [], draft: "", sending: false, notice: "",
 });
 let tabConversation = emptyConversation();
 const listeners = new Set<() => void>();
@@ -39,17 +41,24 @@ export function resetLocalConversationForTests() {
 }
 
 export function LocalConversationPanel({
-  models, onReconnect, children,
+  models, binding, onReconnect, children,
 }: {
   models: LocalModelsInspectionStatus;
+  binding: BackendTruthReadBinding | null;
   onReconnect: () => void;
   children?: ReactNode;
 }) {
-  const conversation = useSyncExternalStore(subscribe, snapshot);
+  const stored = useSyncExternalStore(subscribe, snapshot);
+  const backendKey = binding ? JSON.stringify([binding.backendInstanceRef, binding.backendRevisionRef]) : "";
+  const conversation = stored.backendKey === backendKey ? stored : emptyConversation(backendKey);
   const transcript = useRef<HTMLDivElement>(null);
   const modelId = conversation.modelId || models.selectedModelId || models.modelIds[0] || "";
-  const ready = models.state === "ready" && models.modelIds.includes(modelId);
+  const ready = Boolean(backendKey) && models.state === "ready" &&
+    models.conversationContract === "m164" && models.modelIds.includes(modelId);
   const canSend = ready && !conversation.sending && Boolean(conversation.draft.trim());
+  useEffect(() => {
+    if (snapshot().backendKey !== backendKey) replaceConversation(emptyConversation(backendKey));
+  }, [backendKey]);
   useEffect(() => {
     if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
   }, [conversation.messages.length, conversation.sending]);
@@ -57,7 +66,7 @@ export function LocalConversationPanel({
   async function send() {
     // Synchronous tab-owned lock also covers rapid clicks and route remounts.
     const current = snapshot();
-    if (current.sending || !ready || !current.draft.trim()) return;
+    if (current.backendKey !== backendKey || current.sending || !ready || !current.draft.trim()) return;
     const messages: LocalConversationMessage[] = [
       ...current.messages, { role: "user", content: current.draft },
     ];
@@ -69,17 +78,20 @@ export function LocalConversationPanel({
       replaceConversation({ ...current, notice: "This chat is full. Start a new conversation or shorten your message." });
       return;
     }
-    replaceConversation({ ...current, modelId, sending: true, notice: "" });
+    const pending = { ...current, modelId, sending: true, notice: "" };
+    replaceConversation(pending);
     try {
-      const reply = await requestLocalConversationTurn(modelId, messages);
+      const reply = await requestLocalConversationTurn(modelId, messages, binding);
+      if (snapshot() !== pending) return;
       replaceConversation({
-        modelId, messages: [...messages, reply.message], draft: "", sending: false,
+        backendKey, modelId, messages: [...messages, reply.message], draft: "", sending: false,
         notice: reply.finishReason === "length"
           ? "Reply reached the response limit. You can ask the model to continue."
           : reply.finishReason === "content_filter"
             ? "The model limited this reply." : "",
       });
     } catch (error) {
+      if (snapshot() !== pending) return;
       replaceConversation({
         ...current, modelId, sending: false,
         notice: error instanceof Error ? error.message : "The turn did not finish. Your message is still here.",
@@ -92,7 +104,7 @@ export function LocalConversationPanel({
       <div className="local-conversation-toolbar">
         <button
           className="secondary-button" type="button" disabled={conversation.sending}
-          onClick={() => replaceConversation(emptyConversation())}
+          onClick={() => replaceConversation(emptyConversation(backendKey))}
         >
           <NorthStarIcon name="plus" size="lg" /> New chat
         </button>
@@ -100,7 +112,13 @@ export function LocalConversationPanel({
           <NorthStarIcon name="refresh-cw" size="sm" /> Reconnect
         </button>
       </div>
-      {!ready ? <p className="chat-connection-notice" role="status">{models.safeMessage}</p> : null}
+      {!ready ? <p className="chat-connection-notice" role="status">{
+        models.state === "ready"
+          ? models.conversationContract === "mock_only"
+            ? "This gateway is mock-only. Enable the local model gateway to have a conversation."
+            : "The local conversation contract or backend connection is unavailable. Reconnect before sending."
+          : models.safeMessage
+      }</p> : null}
       <div ref={transcript} className="local-conversation-messages" role="log" aria-label="Conversation" aria-live="polite" tabIndex={0}>
         {conversation.messages.length === 0 ? (
           <div className="chat-empty-state">

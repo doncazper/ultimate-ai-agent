@@ -15499,6 +15499,7 @@ export interface LocalModelsInspectionStatus {
   checkedAt: string;
   safeMessage: string;
   modelIds: string[];
+  conversationContract?: "m164" | "mock_only" | "unavailable";
   selectedModelId?: string;
   statusCode?: number;
   reasonCodes: string[];

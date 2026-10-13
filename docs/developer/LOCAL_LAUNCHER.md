@@ -26,6 +26,13 @@ The launcher starts the existing FastAPI backend and CCC Web Control Center
 development server. For private operator trial boot, Control Center is the
 first-party product surface and OpenWebUI is the secondary local shell.
 
+Main Chat uses the existing Control Center session bearer with current
+backend-truth provenance to access the explicitly enabled M164 gateway. The
+configured model-gateway key may differ from the Control Center bearer: it
+stays on the backend, as does the backend/provider key. No additional secret is
+handed to the browser. Missing, expired, or rebound provenance fails closed;
+the M151 deterministic test shell is mock-only, not conversational readiness.
+
 | Service | URL | Command family |
 |---|---|---|
 | Backend API | `http://127.0.0.1:8000` (default, configurable) | `.venv/bin/python -m uvicorn ultimate_ai_agent.api.app:app` |

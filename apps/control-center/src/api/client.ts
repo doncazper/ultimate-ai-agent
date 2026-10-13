@@ -10312,7 +10312,9 @@ function authorityLeaseRevokeIdempotencyRef(
   return `idempotency-ref:control-center-authority-revoke:${safeChatSuffix(request.lease_ref)}:${safeHashSuffix(refMaterial)}`;
 }
 
-export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {
+export async function inspectLocalModelsRoute(
+  binding: BackendTruthReadBinding | null = null,
+): Promise<LocalModelsInspectionStatus> {
   const checkedAt = new Date().toISOString();
   if (!API_BASE_POLICY.allowed) {
     return {
@@ -10329,7 +10331,9 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
     const response = await fetch(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localModels}`,
       {
-        headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+        headers: binding ? withBackendTruthMutationHeaders(
+          withLocalApiAuthHeaders({ Accept: "application/json" }), binding,
+        ) : withLocalApiAuthHeaders({ Accept: "application/json" }),
       },
     );
     const data = await readJsonSafely(response);
@@ -10337,6 +10341,11 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
       return localModelsFailureStatus(response.status, data, checkedAt);
     }
     const modelIds = extractModelIds(data);
+    const safety = extractSafetyRecord(data);
+    const conversationContract = safety.milestone === "M164" && safety.loopback_only === true &&
+      ["tools_enabled", "functions_enabled", "streaming_enabled", "openwebui_is_agent_brain"]
+        .every((key) => safety[key] === false)
+      ? "m164" : safety.milestone_ref === "M151" ? "mock_only" : "unavailable";
     return {
       state: modelIds.length > 0 ? "ready" : "degraded",
       routeRef: API_ENDPOINTS.localModels,
@@ -10346,6 +10355,7 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
           ? "Local model list is reachable through the UAA /v1 gateway."
           : "Local model route answered, but no model identifiers were listed.",
       modelIds,
+      conversationContract,
       selectedModelId: modelIds[0],
       statusCode: response.status,
       reasonCodes:
@@ -10385,8 +10395,9 @@ class LocalConversationError extends Error {}
 export async function requestLocalConversationTurn(
   modelId: string,
   messages: readonly LocalConversationMessage[],
+  binding: BackendTruthReadBinding | null,
 ): Promise<LocalConversationReply> {
-  if (!API_BASE_POLICY.allowed || !localApiBearerForRequest()) {
+  if (!API_BASE_POLICY.allowed || !localApiBearerForRequest() || !binding) {
     throw new LocalConversationError(
       "Open Control Center from the authenticated local launcher before sending.",
     );
@@ -10415,12 +10426,12 @@ export async function requestLocalConversationTurn(
       {
         method: "POST",
         signal: controller.signal,
-        headers: withLocalApiAuthHeaders({
+        headers: withBackendTruthMutationHeaders(withLocalApiAuthHeaders({
           Accept: "application/json",
           "Content-Type": "application/json",
           "X-UAA-Idempotency-Key":
             "idempotency-ref:control-center-chat:" + crypto.randomUUID(),
-        }),
+        }), binding),
         body: JSON.stringify({ model: modelId, messages, max_tokens: 1024, stream: false }),
       },
     );
@@ -10476,6 +10487,7 @@ export async function requestLocalConversationTurn(
 
 export async function requestRedactedLocalChatProbe(
   modelId = DEFAULT_LOCAL_MODEL_ID,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<RedactedLocalChatProbeStatus> {
   const startedAt =
     typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -10496,11 +10508,14 @@ export async function requestRedactedLocalChatProbe(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localChatCompletions}`,
       {
         method: "POST",
-        headers: withLocalApiAuthHeaders({
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-UAA-Idempotency-Key": localChatProbeIdempotencyRef(modelId),
-        }),
+        headers: {
+          ...(binding ? withBackendTruthMutationHeaders({}, binding) : {}),
+          ...withLocalApiAuthHeaders({
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": localChatProbeIdempotencyRef(modelId),
+          }),
+        },
         body: JSON.stringify({
           model: modelId,
           messages: [{ role: "user", content: "status" }],
