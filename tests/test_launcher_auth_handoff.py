@@ -134,4 +134,54 @@ def test_gateway_rejects_unverified_origin_on_owned_backend(monkeypatch, tmp_pat
     monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
 
     result = launcher.start_service(tmp_path, launcher.service_config(tmp_path, "backend"))
-    assert "blocked; local Chat frontend origin changed or is unverified" in result
+    assert "blocked; local Chat configuration changed or is unverified" in result
+
+
+def test_gateway_safe_disable_rejects_a_still_enabled_owned_backend(monkeypatch, tmp_path) -> None:
+    launcher = _launcher()
+    monkeypatch.delenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", raising=False)
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda _path: 12345)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda *_args: True)
+    monkeypatch.setattr(launcher, "_read_service_metadata", lambda _service: {
+        "local_chat_frontend_origin": launcher.frontend_url(),
+    })
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+
+    result = launcher.start_service(tmp_path, launcher.service_config(tmp_path, "backend"))
+
+    assert "blocked; local Chat configuration changed or is unverified" in result
+    assert "run uaa stop, then uaa start" in result
+    assert "already running" not in result
+
+
+def test_gateway_disabled_posture_does_not_trust_legacy_owned_metadata(monkeypatch, tmp_path) -> None:
+    launcher = _launcher()
+    monkeypatch.delenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", raising=False)
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda _path: 12345)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda *_args: True)
+    monkeypatch.setattr(launcher, "_read_service_metadata", lambda _service: {})
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+
+    result = launcher.start_service(tmp_path, launcher.service_config(tmp_path, "backend"))
+
+    assert "blocked; local Chat configuration changed or is unverified" in result
+
+
+def test_gateway_unchanged_disabled_owned_backend_stays_available(monkeypatch, tmp_path) -> None:
+    launcher = _launcher()
+    monkeypatch.delenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", raising=False)
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda _path: 12345)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda *_args: True)
+    finance = launcher._load_finance_startup_module()
+    monkeypatch.setattr(finance, "finance_startup_configuration_matches", lambda *_args: True)
+    monkeypatch.setattr(launcher, "_read_service_metadata", lambda _service: {
+        "local_chat_frontend_origin": None,
+    })
+    monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
+
+    result = launcher.start_service(tmp_path, launcher.service_config(tmp_path, "backend"))
+
+    assert "already running" in result

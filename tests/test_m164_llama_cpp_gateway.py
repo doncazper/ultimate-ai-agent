@@ -1,18 +1,9 @@
 from typing import Any
-from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
-import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
 from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
-from ultimate_ai_agent.core.build_identity import build_identity
-from ultimate_ai_agent.core.control_center.backend_truth import (
-    backend_instance_ref,
-    build_control_center_backend_truth,
-)
-from ultimate_ai_agent.core.storage import FounderLoopRepository
-from ultimate_ai_agent.core.time import utc_now
 from ultimate_ai_agent.core.local_model_management import (
     DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY,
     DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
@@ -181,7 +172,7 @@ def test_m164_gateway_rejects_exact_prompt_echo() -> None:
             "M164_TOOLS_DENIED",
         ),
         (
-            {"model": "unsafe/../model", "messages": [{"role": "user", "content": "hi"}]},
+            {"model": "unsafe/model", "messages": [{"role": "user", "content": "hi"}]},
             "M164_MODEL_ID_UNSAFE",
         ),
     ],
@@ -203,6 +194,8 @@ def test_m164_api_models_endpoint_uses_llama_cpp_mode_when_enabled(monkeypatch: 
 def test_m164_namespaced_model_works_through_existing_api_without_alias_substitution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
     _enable_gateway(monkeypatch)
     model_id = "qwen/qwen3.8-27b"
     monkeypatch.setenv("UAA_LLAMA_CPP_MODEL_ID", model_id)
@@ -257,6 +250,15 @@ def test_m164_api_requires_configured_gateway_bearer_when_enabled(monkeypatch: p
 
 
 def _control_center_session_headers(monkeypatch, tmp_path, *, expired=False):
+    from datetime import timedelta
+    from ultimate_ai_agent.core.build_identity import build_identity
+    from ultimate_ai_agent.core.control_center.backend_truth import (
+        backend_instance_ref,
+        build_control_center_backend_truth,
+    )
+    from ultimate_ai_agent.core.storage import FounderLoopRepository
+    from ultimate_ai_agent.core.time import utc_now
+
     _enable_gateway(monkeypatch)
     monkeypatch.setenv("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "0")
     monkeypatch.setenv("UAA_API_LOCAL_BEARER", "fixture-control-center-session")
@@ -277,6 +279,8 @@ def _control_center_session_headers(monkeypatch, tmp_path, *, expired=False):
 
 
 def test_m164_control_center_session_uses_distinct_credentials_without_exposing_gateway_key(monkeypatch, tmp_path):
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
     headers = _control_center_session_headers(monkeypatch, tmp_path)
     transport = FakeM164GatewayTransport(content="y" * 12)
     monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
@@ -297,6 +301,8 @@ def test_m164_control_center_session_uses_distinct_credentials_without_exposing_
     "expired_truth", "wrong_bearer", "missing_gateway_key", "disabled_gateway",
 ])
 def test_m164_control_center_session_fails_closed_before_transport(monkeypatch, tmp_path, invalid):
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
     headers = _control_center_session_headers(monkeypatch, tmp_path, expired=invalid == "expired_truth")
     transport = FakeM164GatewayTransport(content="y" * 12)
     monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)

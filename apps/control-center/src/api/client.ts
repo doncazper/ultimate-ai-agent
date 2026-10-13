@@ -10336,13 +10336,14 @@ export async function inspectLocalModelsRoute(
         ) : withLocalApiAuthHeaders({ Accept: "application/json" }),
       },
     );
+    validateBackendResponseBinding(response.headers, binding);
     const data = await readJsonSafely(response);
     if (!response.ok) {
       return localModelsFailureStatus(response.status, data, checkedAt);
     }
     const modelIds = extractModelIds(data);
     const safety = extractSafetyRecord(data);
-    const conversationContract = safety.milestone === "M164" && safety.loopback_only === true &&
+    const conversationContract = binding !== null && safety.milestone === "M164" && safety.loopback_only === true &&
       ["tools_enabled", "functions_enabled", "streaming_enabled", "openwebui_is_agent_brain"]
         .every((key) => safety[key] === false)
       ? "m164" : safety.milestone_ref === "M151" ? "mock_only" : "unavailable";

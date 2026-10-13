@@ -1030,11 +1030,15 @@ def start_service(
             if service.name == "backend":
                 finance_startup = _load_finance_startup_module()
                 metadata = _read_service_metadata(service) or {}
-                if llama_cpp_gateway_requested() and metadata.get(
-                    "local_chat_frontend_origin"
-                ) != frontend_url():
+                expected_chat_origin = (
+                    frontend_url() if llama_cpp_gateway_requested() else None
+                )
+                if (
+                    "local_chat_frontend_origin" not in metadata
+                    or metadata["local_chat_frontend_origin"] != expected_chat_origin
+                ):
                     return (
-                        "backend: blocked; local Chat frontend origin changed or is "
+                        "backend: blocked; local Chat configuration changed or is "
                         "unverified; run uaa stop, then uaa start; ownership metadata retained"
                     )
                 if not finance_startup.finance_startup_configuration_matches(

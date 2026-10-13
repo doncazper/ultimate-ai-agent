@@ -100,11 +100,6 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
     ("helper_name", "expected_target", "substituted_target"),
     [
         (
-            "requestLocalConversationTurn",
-            "API_ENDPOINTS.localChatCompletions",
-            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
-        ),
-        (
             "prepareRuntimeGoalMutationApproval",
             "API_ENDPOINTS.runtimeGoalApprovalPrepareCreate",
             "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
@@ -162,6 +157,15 @@ def test_m13_rejects_goal_helper_destination_substitution(
             f"frontend client exact POST binding mismatch: {helper_name}"
         )
         for failure in result.failures
+    )
+
+
+def test_m13_rejects_local_conversation_destination_substitution(tmp_path: Path) -> None:
+    test_m13_rejects_goal_helper_destination_substitution(
+        tmp_path,
+        "requestLocalConversationTurn",
+        "API_ENDPOINTS.localChatCompletions",
+        "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
     )
 
 

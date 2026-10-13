@@ -71,14 +71,49 @@ describe("explicit local conversation turn", () => {
       milestone: "M164", loopback_only: true, tools_enabled: false,
       functions_enabled: false, streaming_enabled: false, openwebui_is_agent_brain: false,
     } };
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(models))));
+    const headers = {
+      "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+      "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+    };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(models), { headers })));
     expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("m164");
     models.uaa_safety.tools_enabled = true;
     expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("unavailable");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       data: [{ id: "uaa-safe-local" }], uaa_safety: { milestone_ref: "M151" },
-    }))));
+    }), { headers })));
     expect((await inspectLocalModelsRoute(binding)).conversationContract).toBe("mock_only");
+  });
+  it.each(["missing", "instance", "revision"])("rejects %s model-response binding before readiness", async (invalid) => {
+    const headers: Record<string, string> = {
+      "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+      "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+    };
+    if (invalid === "missing") {
+      delete headers["X-UAA-Backend-Instance-Ref"];
+      delete headers["X-UAA-Backend-Revision-Ref"];
+    } else {
+      headers[invalid === "instance" ? "X-UAA-Backend-Instance-Ref" : "X-UAA-Backend-Revision-Ref"] = "ref:substituted";
+    }
+    const readBody = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, headers: new Headers(headers), json: readBody })));
+
+    const status = await inspectLocalModelsRoute(binding);
+
+    expect(status.state).toBe("unavailable");
+    expect(status.modelIds).toEqual([]);
+    expect(status.conversationContract).not.toBe("m164");
+    expect(readBody).not.toHaveBeenCalled();
+  });
+  it("never grants conversation readiness to an unbound model-list inspection", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      data: [{ id: modelId }], uaa_safety: {
+        milestone: "M164", loopback_only: true, tools_enabled: false,
+        functions_enabled: false, streaming_enabled: false, openwebui_is_agent_brain: false,
+      },
+    }))));
+
+    expect((await inspectLocalModelsRoute(null)).conversationContract).toBe("unavailable");
   });
   it.each([401, 403, 422, 429, 500])("keeps HTTP %s errors content-free without retry", async (status) => {
     const reply = completion();

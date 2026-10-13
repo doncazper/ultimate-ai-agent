@@ -1204,12 +1204,14 @@ def test_finance_startup_reuse_requires_matching_owned_metadata_and_retains_stop
     for name in contract.FINANCE_STARTUP_ENV_NAMES:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(contract.FINANCE_WORKSPACE_DISABLE_ENV, "")
+    monkeypatch.delenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", raising=False)
     service = launcher.service_config(tmp_path, "backend")
     service.pid_file.parent.mkdir(parents=True)
     service.pid_file.write_text("12345\n", encoding="utf-8")
     metadata = {
         "name": service.name, "pid": 12345, "command": service.command,
         "cwd": str(service.cwd), "url": service.url,
+        "local_chat_frontend_origin": None,
     }
     if recorded != "missing":
         metadata[contract.FINANCE_STARTUP_METADATA_KEY] = (

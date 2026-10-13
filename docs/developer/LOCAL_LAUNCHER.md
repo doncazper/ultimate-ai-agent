@@ -37,6 +37,12 @@ API-base setting for all Control Center requests and binds CORS to the exact
 validated frontend origin, including an automatically selected local port.
 The shared Vite/test configuration is unchanged. Without M164, the existing
 relative API and development proxy behavior is retained.
+Changing gateway enablement in either direction requires stopping and
+restarting the launcher-owned backend. `uaa start` reports a blocked state
+when the running gateway posture or frontend origin differs, or older metadata
+cannot prove the posture; it never treats a changed environment as a live
+safe-disable. `uaa stop` retains its existing ownership checks and does not
+stop the separately managed model server.
 
 | Service | URL | Command family |
 |---|---|---|

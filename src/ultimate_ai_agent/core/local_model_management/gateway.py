@@ -382,6 +382,10 @@ def _validate_model_id(model_id: str) -> None:
         model_id,
     ) is None:
         raise ValueError("M164_MODEL_ID_UNSAFE")
+    # Preserve the legacy rejection of arbitrary slash-containing identifiers.
+    # Namespace syntax is admitted only for the exact operator-configured model.
+    if "/" in model_id and model_id != os.environ.get(UAA_LLAMA_CPP_MODEL_ID_ENV, "").strip():
+        raise ValueError("M164_MODEL_ID_UNSAFE")
 
 
 def _validate_safe_text(value: str, field_name: str, *, max_length: int) -> None:
