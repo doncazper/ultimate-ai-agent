@@ -35,11 +35,11 @@ describe("News read ownership and deadline", () => {
     await expect(loadNewsSignalsAdoptionWorkspace({}, binding)).resolves.toEqual(workspace);
   });
 
-  it("bounds queued handoff reads by one deadline and never starts expired requests", async () => {
+  it.each(["news-handoff", "chat"] as const)("bounds queued %s reads by one deadline and never starts expired requests", async (scope) => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     const fetchMock = vi.fn().mockImplementation(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
-    const outcome = loadControlCenterData(binding, "news-handoff").then(() => "unexpected", () => "rejected");
+    const outcome = loadControlCenterData(binding, scope).then(() => "unexpected", () => "rejected");
     await vi.advanceTimersByTimeAsync(8001);
     expect(await outcome).toBe("rejected");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -48,7 +48,7 @@ describe("News read ownership and deadline", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("includes response-body parsing in the same handoff deadline", async () => {
+  it.each(["news-handoff", "chat"] as const)("includes response-body parsing in the same %s deadline", async (scope) => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -59,7 +59,7 @@ describe("News read ownership and deadline", () => {
       json: () => new Promise(() => {}),
     });
     vi.stubGlobal("fetch", fetchMock);
-    const outcome = loadControlCenterData(binding, "news-handoff").then(() => "unexpected", () => "rejected");
+    const outcome = loadControlCenterData(binding, scope).then(() => "unexpected", () => "rejected");
     await vi.advanceTimersByTimeAsync(8001);
     expect(await outcome).toBe("rejected");
     expect(fetchMock).toHaveBeenCalledTimes(1);

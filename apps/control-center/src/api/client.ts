@@ -3994,11 +3994,21 @@ const NEWS_HANDOFF_REQUIRED_ROUTES = [
   "/critical/dashboard-read-model",
 ];
 
+const CHAT_READ_ENDPOINTS = new Set<string>([
+  API_ENDPOINTS.controlCenterDashboard, API_ENDPOINTS.approvalSummary,
+  API_ENDPOINTS.runtimeReadinessSummary, API_ENDPOINTS.foundationGateSummary,
+  API_ENDPOINTS.controlCenterSettingsStatus, API_ENDPOINTS.founderTodaySummary,
+  API_ENDPOINTS.founderAgentLoopThread,
+]);
+const CHAT_REQUIRED_ROUTES = ["/chat", "/today", "/settings", "/critical/dashboard-read-model"];
+
 export async function loadControlCenterData(
   expectedBinding: BackendTruthReadBinding | null = null,
-  scope: "full" | "news-handoff" = "full",
+  scope: "full" | "news-handoff" | "chat" = "full",
 ): Promise<ControlCenterData> {
-  if (scope === "news-handoff" && (!API_BASE_POLICY.allowed || !expectedBinding)) {
+  const boundedScope = scope !== "full";
+  const scopedEndpoints = scope === "chat" ? CHAT_READ_ENDPOINTS : NEWS_HANDOFF_READ_ENDPOINTS;
+  if (boundedScope && (!API_BASE_POLICY.allowed || !expectedBinding)) {
     throw new StrictBackendDataError();
   }
   if (!API_BASE_POLICY.allowed) {
@@ -4026,12 +4036,12 @@ export async function loadControlCenterData(
 
   // Compound Founder Loop reads share local storage and CPU. Keep this small
   // scope serial without extending the existing deadline.
-  const loadReadLimiter = createControlCenterReadLimiter(scope === "news-handoff" ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
-  const handoffDeadline = scope === "news-handoff"
+  const loadReadLimiter = createControlCenterReadLimiter(boundedScope ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
+  const handoffDeadline = boundedScope
     ? performance.now() + CONTROL_CENTER_READ_TIMEOUT_MS : null;
   const read = <T>(endpoint: string): Promise<T> =>
-    scope === "news-handoff" && !NEWS_HANDOFF_READ_ENDPOINTS.has(endpoint)
-      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+    boundedScope && !scopedEndpoints.has(endpoint)
+      ? Promise.reject(new Error("READ_OUTSIDE_ROUTE_SCOPE"))
       : endpoint.startsWith("/api/runtime/")
       ? Promise.resolve().then(() =>
           readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding, handoffDeadline),
@@ -4053,8 +4063,8 @@ export async function loadControlCenterData(
     API_ENDPOINTS.crmSummary,
   );
   const communicationsProjectionSettledPromise = Promise.allSettled([
-    scope === "news-handoff"
-      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+    boundedScope
+      ? Promise.reject(new Error("READ_OUTSIDE_ROUTE_SCOPE"))
       : loadCommunicationsConversationsWithReadContext(
       loadReadLimiter,
       expectedBinding,
@@ -5577,7 +5587,7 @@ export async function loadControlCenterData(
   };
 
   if (fulfilledCount === 0) {
-    if (scope === "news-handoff") throw new StrictBackendDataError();
+    if (boundedScope) throw new StrictBackendDataError();
     return withConnection(
       {
         ...mockControlCenterData,
@@ -5785,16 +5795,19 @@ export async function loadControlCenterData(
     routeStates,
   };
 
-  if (scope === "news-handoff") {
+  if (boundedScope) {
     // Reuse the full loader's validators and exact route-ownership calculation.
     // Unrequested surfaces remain fallback, never promoted by this connection.
-    const unavailableRoutes = NEWS_HANDOFF_REQUIRED_ROUTES.filter((route) => routeStates[route]?.state !== "backend_owned");
+    const requiredRoutes = scope === "chat" ? CHAT_REQUIRED_ROUTES : NEWS_HANDOFF_REQUIRED_ROUTES;
+    const unavailableRoutes = requiredRoutes.filter((route) => routeStates[route]?.state !== "backend_owned");
     if (unavailableRoutes.length > 0) {
-      throw new Error(`NEWS_HANDOFF_ROUTE_UNVERIFIED:${unavailableRoutes.join(",")}`);
+      throw new Error("BOUNDED_ROUTE_UNVERIFIED:" + unavailableRoutes.join(","));
     }
     return withConnection(data, {
       state: "online",
-      safeMessage: "Today and Briefing loaded from their bound local read contracts; other surfaces were not requested.",
+      safeMessage: scope === "chat"
+        ? "Chat loaded from its bound local read contracts; other surfaces were not requested."
+        : "Today and Briefing loaded from their bound local read contracts; other surfaces were not requested.",
       usingMockData: false,
       warnings: [],
     });

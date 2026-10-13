@@ -119,6 +119,9 @@ workflow. The first-run exception still requires a valid revision-bound backend
 envelope and backend-owned route data; stale, invalid, unavailable-storage,
 unbound-revision and mock-backed states remain closed. Opening Chat never sends
 a model turn automatically or marks founder-loop evidence complete.
+Chat reads only its seven existing required summary endpoints under one bounded
+deadline, retaining their normal ownership and payload validators. It does not
+wait for unrelated application modules or promote their unread state.
 
 Connection failures keep the draft available and never retry automatically.
 A lost reply is an uncertain outcome, not proof that the model did not run.
