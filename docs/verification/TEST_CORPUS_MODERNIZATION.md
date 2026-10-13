@@ -120,6 +120,16 @@ CVE-2026-64847. AnyIO exposes a pytest plugin, so this transition still requires
 installed-suite and corpus evidence; different bases, incomplete pairs, changed
 lock bytes, and additional plugin or collection changes remain rejected. This
 is not standing permission for dependency updates.
+The subsequent audit recovery rotates only urllib3 2.7.0 to 2.8.0, Undici
+7.29.0 to 7.30.0, and source-map-js 1.2.1 to 1.2.2. It binds the exact old/new
+bytes of both `uv.lock` and the Control Center `package-lock.json` together,
+plus the exact unchanged bytes of both dependency manifests. The historical
+HTTPX2, AnyIO and Vitest pins remain intact. Missing locks or manifests,
+substituted bases, unrelated records, additional lock files, and runner/plugin/
+collection changes remain rejected. Qualification requires strict Python and
+npm audits, installed-suite and compatibility tests, unchanged historical
+comparison evidence with revalidated current provenance, exact-base corpus
+evidence with zero removals/retirements, and exact-head review and hosted gates.
 Changes to the canonical pytest shard runner or its command manifest also fail
 closed because those files define which Python tests execute. The one bounded
 exception is the paired, exact `*_test.py` discovery alignment: the runner and
@@ -240,6 +250,9 @@ corpus verification with zero removals or retirements, adversarial pair tests,
 exact-head independent/security review, hosted CI, and Supply Chain checks.
 Future rotations require new scoped evidence and review; versions and package
 names alone never establish equivalence.
+The later three-package audit recovery described above likewise admits only
+its exact cross-language lock pair and unchanged manifests; it grants no
+general frontend dependency-update permission.
 `scripts/verify_test_corpus_guard.py`
 provides the direct inspection command. For a pull request the guard compares
 every changed test file with the exact CI comparison base. A removed or renamed

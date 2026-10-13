@@ -134,4 +134,8 @@ def test_vitest_security_transition_matches_exact_committed_dependency_bytes() -
         _,
         current_digest,
     ) in guard.VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH.items():
-        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
+        recovery_prior, recovery_current = (
+            guard.AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH[path]
+        )
+        assert current_digest == recovery_prior
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == recovery_current

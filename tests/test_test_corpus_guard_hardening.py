@@ -265,7 +265,11 @@ def test_httpx2_security_dependency_current_fingerprints_are_exact() -> None:
             guard.ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH[path]
         )
         assert historical_current_digest == prior_digest
-        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
+        recovery_prior, recovery_current = (
+            guard.AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH[path]
+        )
+        assert current_digest == recovery_prior
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == recovery_current
 
 
 def _source_ref(test_ref: str) -> str:
@@ -1416,4 +1420,196 @@ def test_anyio_security_dependency_alignment_keeps_collection_boundary_fail_clos
             guard.TestCorpusGuardError,
             match="changed pytest (dependency lock|collection configuration)",
         ):
+            guard._changed_test_paths(tmp_path, "a" * 40)
+
+
+def test_audit_recovery_fingerprints_bind_both_locks_and_unchanged_manifests() -> None:
+    root = Path(__file__).parents[1]
+    pins = guard.AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH
+    predecessors = {
+        **guard.ANYIO_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH,
+        **guard.VITEST_SECURITY_DEPENDENCY_APPROVED_SHA256_BY_PATH,
+    }
+    assert set(pins) == set(predecessors)
+    changed = set()
+    for path, (prior_digest, current_digest) in pins.items():
+        assert prior_digest == predecessors[path][1]
+        assert hashlib.sha256((root / path).read_bytes()).hexdigest() == current_digest
+        if prior_digest != current_digest:
+            changed.add(path)
+    assert changed == guard.AUDIT_RECOVERY_DEPENDENCY_LOCK_PATHS == {
+        "uv.lock", "apps/control-center/package-lock.json"
+    }
+
+
+def _audit_recovery_dependency_files() -> tuple[dict[str, str], dict[str, str]]:
+    prior = {
+        "pyproject.toml": '[project]\ndependencies = ["anyio>=4.14.2,<5"]\n',
+        "uv.lock": '[[package]]\nname = "urllib3"\nversion = "2.7.0"\n',
+        "apps/control-center/package.json": (
+            '{"scripts":{"test":"vitest run"},"devDependencies":{"vitest":"4.1.11"}}'
+        ),
+        "apps/control-center/package-lock.json": (
+            '{"undici":"7.29.0","source-map-js":"1.2.1"}'
+        ),
+    }
+    current = {
+        **prior,
+        "uv.lock": prior["uv.lock"].replace("2.7.0", "2.8.0"),
+        "apps/control-center/package-lock.json": (
+            '{"undici":"7.30.0","source-map-js":"1.2.2"}'
+        ),
+    }
+    return prior, current
+
+
+def _bind_audit_recovery_dependency_files(
+    monkeypatch: pytest.MonkeyPatch,
+    prior: dict[str, str],
+    current: dict[str, str],
+) -> None:
+    monkeypatch.setattr(
+        guard,
+        "AUDIT_RECOVERY_DEPENDENCY_APPROVED_SHA256_BY_PATH",
+        {
+            path: (
+                hashlib.sha256(prior[path].encode()).hexdigest(),
+                hashlib.sha256(current[path].encode()).hexdigest(),
+            )
+            for path in prior
+        },
+    )
+
+
+@pytest.mark.parametrize("side", ("prior", "current"))
+@pytest.mark.parametrize("mutation", ("byte", "missing"))
+@pytest.mark.parametrize(
+    "path",
+    (
+        "pyproject.toml",
+        "uv.lock",
+        "apps/control-center/package.json",
+        "apps/control-center/package-lock.json",
+    ),
+)
+def test_audit_recovery_alignment_rejects_every_bound_file_substitution(
+    monkeypatch: pytest.MonkeyPatch, side: str, mutation: str, path: str
+) -> None:
+    prior, current = _audit_recovery_dependency_files()
+    _bind_audit_recovery_dependency_files(monkeypatch, prior, current)
+    assert guard._safe_audit_recovery_dependency_alignment_paths(
+        prior_by_path=prior, current_by_path=current
+    ) == {"uv.lock", "apps/control-center/package-lock.json"}
+    target = prior if side == "prior" else current
+    if mutation == "byte":
+        target[path] += " "
+    else:
+        del target[path]
+    assert not guard._safe_audit_recovery_dependency_alignment_paths(
+        prior_by_path=prior, current_by_path=current
+    )
+
+
+@pytest.mark.parametrize("side", ("prior", "current"))
+def test_audit_recovery_alignment_rejects_extra_files_and_reversed_transition(
+    monkeypatch: pytest.MonkeyPatch, side: str
+) -> None:
+    prior, current = _audit_recovery_dependency_files()
+    _bind_audit_recovery_dependency_files(monkeypatch, prior, current)
+    assert not guard._safe_audit_recovery_dependency_alignment_paths(
+        prior_by_path=current, current_by_path=prior
+    )
+    (prior if side == "prior" else current)["pytest.ini"] = "[pytest]\n"
+    assert not guard._safe_audit_recovery_dependency_alignment_paths(
+        prior_by_path=prior, current_by_path=current
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "none", "wrong_base", "different_python_patch", "different_node_patch",
+        "unrelated_python_record", "unrelated_node_record", "python_lock_only",
+        "node_lock_only", "missing_project", "missing_manifest",
+        "project_dependency", "frontend_dependency", "frontend_script",
+        "pytest_plugin", "pytest_config", "frontend_config", "extra_lock", "runner",
+    ),
+)
+def test_audit_recovery_alignment_preserves_all_other_collection_gates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    prior, current = _audit_recovery_dependency_files()
+    _bind_audit_recovery_dependency_files(monkeypatch, prior, current)
+    changed_paths = {"uv.lock", "apps/control-center/package-lock.json"}
+    if mutation == "wrong_base":
+        prior["uv.lock"] = prior["uv.lock"].replace("2.7.0", "2.6.0")
+    elif mutation == "different_python_patch":
+        current["uv.lock"] = current["uv.lock"].replace("2.8.0", "2.9.0")
+    elif mutation == "different_node_patch":
+        current["apps/control-center/package-lock.json"] = (
+            current["apps/control-center/package-lock.json"].replace("7.30.0", "7.31.0")
+        )
+    elif mutation == "unrelated_python_record":
+        current["uv.lock"] += '[[package]]\nname = "other"\nversion = "1.0"\n'
+    elif mutation == "unrelated_node_record":
+        current["apps/control-center/package-lock.json"] += " "
+    elif mutation == "python_lock_only":
+        changed_paths.remove("apps/control-center/package-lock.json")
+    elif mutation == "node_lock_only":
+        changed_paths.remove("uv.lock")
+    elif mutation == "missing_project":
+        del current["pyproject.toml"]
+    elif mutation == "missing_manifest":
+        del current["apps/control-center/package.json"]
+    elif mutation == "project_dependency":
+        current["pyproject.toml"] = current["pyproject.toml"].replace("4.14.2", "4.15.0")
+        changed_paths.add("pyproject.toml")
+    elif mutation == "frontend_dependency":
+        current["apps/control-center/package.json"] = (
+            current["apps/control-center/package.json"].replace("4.1.11", "4.1.12")
+        )
+        changed_paths.add("apps/control-center/package.json")
+    elif mutation == "frontend_script":
+        current["apps/control-center/package.json"] = (
+            current["apps/control-center/package.json"].replace("vitest run", "echo ok")
+        )
+        changed_paths.add("apps/control-center/package.json")
+    elif mutation == "pytest_plugin":
+        current["pyproject.toml"] += (
+            '[project.entry-points.pytest11]\nother = "other.plugin"\n'
+        )
+        changed_paths.add("pyproject.toml")
+    elif mutation == "pytest_config":
+        current["pytest.ini"] = "[pytest]\naddopts = --ignore=tests/security\n"
+        changed_paths.add("pytest.ini")
+    elif mutation == "frontend_config":
+        current["apps/control-center/vitest.config.ts"] = (
+            "export default {test: {exclude: ['**/*']}};\n"
+        )
+        changed_paths.add("apps/control-center/vitest.config.ts")
+    elif mutation == "extra_lock":
+        current["apps/control-center/npm-shrinkwrap.json"] = "{}"
+        changed_paths.add("apps/control-center/npm-shrinkwrap.json")
+    elif mutation == "runner":
+        current["scripts/verification/run_pytest_shards.py"] = "raise SystemExit(0)\n"
+        changed_paths.add("scripts/verification/run_pytest_shards.py")
+    for path, value in current.items():
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(value)
+    outputs = iter(
+        (("\0".join(sorted(changed_paths)) + "\0").encode(), b"", b"", b"")
+    )
+    monkeypatch.setattr(
+        guard,
+        "_run_git",
+        lambda _repo, _args: subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=next(outputs), stderr=b""
+        ),
+    )
+    monkeypatch.setattr(guard, "_base_text", lambda _repo, _base, path: prior.get(path))
+    if mutation == "none":
+        assert guard._changed_test_paths(tmp_path, "a" * 40) == ()
+    else:
+        with pytest.raises(guard.TestCorpusGuardError, match="cannot be inventoried safely"):
             guard._changed_test_paths(tmp_path, "a" * 40)
