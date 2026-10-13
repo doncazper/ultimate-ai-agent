@@ -10353,6 +10353,114 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
   }
 }
 
+export interface LocalConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface LocalConversationReply {
+  modelId: string;
+  message: LocalConversationMessage;
+  finishReason: "stop" | "length" | "content_filter";
+}
+
+export const LOCAL_CONVERSATION_CHARACTER_LIMIT = 64_000;
+export const LOCAL_CONVERSATION_MESSAGE_LIMIT = 63;
+
+class LocalConversationError extends Error {}
+
+export async function requestLocalConversationTurn(
+  modelId: string,
+  messages: readonly LocalConversationMessage[],
+): Promise<LocalConversationReply> {
+  if (!API_BASE_POLICY.allowed || !localApiBearerForRequest()) {
+    throw new LocalConversationError(
+      "Open Control Center from the authenticated local launcher before sending.",
+    );
+  }
+  if (
+    !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(modelId) ||
+    messages.length === 0 || messages.length > LOCAL_CONVERSATION_MESSAGE_LIMIT ||
+    messages.some((message) =>
+      !["user", "assistant"].includes(message.role) ||
+      typeof message.content !== "string" || !message.content.trim()
+    ) ||
+    messages.at(-1)?.role !== "user" ||
+    messages.reduce((count, message) => count + message.content.length, 0) >
+      LOCAL_CONVERSATION_CHARACTER_LIMIT
+  ) {
+    throw new LocalConversationError(
+      "This conversation exceeds the local chat limit. Start a new conversation or shorten your message.",
+    );
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 130_000);
+  try {
+    // No automatic retry: a lost reply does not prove the model never ran.
+    const response = await fetch(
+      API_BASE_POLICY.baseUrl + API_ENDPOINTS.localChatCompletions,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: withLocalApiAuthHeaders({
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key":
+            "idempotency-ref:control-center-chat:" + crypto.randomUUID(),
+        }),
+        body: JSON.stringify({ model: modelId, messages, max_tokens: 1024, stream: false }),
+      },
+    );
+    if (!response.ok) {
+      throw new LocalConversationError(
+        response.status === 401 || response.status === 403
+          ? "The local gateway needs authentication or must be enabled. Reopen it from the local launcher, then reconnect."
+          : response.status === 429
+            ? "The local gateway is busy. Your message is still here; wait before sending again."
+            : "The local model did not return an accepted reply. Check its server and model, then reconnect. Your message is still here.",
+      );
+    }
+    const data: unknown = await readJsonSafely(response);
+    const record = data !== null && typeof data === "object"
+      ? data as Record<string, unknown> : {};
+    const safety = extractSafetyRecord(record);
+    const choice: unknown = Array.isArray(record.choices) ? record.choices[0] : undefined;
+    const selected = choice !== null && typeof choice === "object"
+      ? choice as Record<string, unknown> : {};
+    const message = selected.message !== null && typeof selected.message === "object"
+      ? selected.message as Record<string, unknown> : {};
+    if (
+      record.model !== modelId || safety.model !== modelId ||
+      safety.message_count !== messages.length || safety.loopback_forward_performed !== true ||
+      !["tools_enabled", "functions_enabled", "streaming_enabled", "raw_prompt_logged",
+        "memory_written", "context_injected", "production_authority_granted"]
+        .every((key) => safety[key] === false) ||
+      safety.backend_fields_allowlisted !== true ||
+      message.role !== "assistant" || typeof message.content !== "string" ||
+      !message.content.trim() || message.content.length > 4096 ||
+      !["stop", "length", "content_filter"].includes(String(selected.finish_reason))
+    ) {
+      throw new LocalConversationError(
+        "The gateway reply did not match the local conversation contract. Your message is still here.",
+      );
+    }
+    return {
+      modelId,
+      message: { role: "assistant", content: message.content },
+      finishReason: selected.finish_reason as LocalConversationReply["finishReason"],
+    };
+  } catch (error) {
+    if (error instanceof LocalConversationError) {
+      throw error;
+    }
+    throw new LocalConversationError(
+      "No reply was received. The model may still have processed the turn. Your message is still here; send again only if you want another attempt.",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function requestRedactedLocalChatProbe(
   modelId = DEFAULT_LOCAL_MODEL_ID,
 ): Promise<RedactedLocalChatProbeStatus> {

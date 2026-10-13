@@ -104,6 +104,41 @@ workflow state.
 
 ## Verification
 
+### Main Chat Local Conversation Follow-Up
+
+The founder-prioritized local conversation client reuses the existing M164
+authenticated loopback gateway. Its main composer sends only on explicit Send
+or Enter, displays the allowlisted assistant text as plain text, and includes
+the current tab's prior turns on follow-up. Model selection is bound for the
+conversation; New chat starts a fresh transient display. Reloading loses this
+content. The separate content-free checkpoint service still never accepts or
+stores message bodies and does not itself grant Send authority.
+
+Connection failures keep the draft available and never retry automatically.
+A lost reply is an uncertain outcome, not proof that the model did not run.
+The client permits at most 63 submitted messages and 64,000 characters of
+explicit conversation context, with 32,000 characters per draft. These are
+client buffer limits, not a claim about model context capacity. The existing
+Python gateway continues to validate model identity, roles, output bounds,
+loopback transport, authentication, and tools/functions/streaming denial.
+No provider transport, cloud call, tool runtime, persistent transcript, or
+automatic memory write is added.
+
+The development server proxies the existing /v1 routes to the same exact
+loopback backend as Control Center routes. Local setup must configure the
+existing gateway, approved model ID, loopback base URL and matching local
+bearer. A model list is readiness evidence only; actual send/response proof is
+required before calling a particular installation usable.
+
+CLI/API inspection remains available through the existing
+./scripts/dev/uaa local-model status command, /v1/models, and the same
+/v1/chat/completions request contract. Operators must not put bearer values
+or conversation bodies in durable logs or evidence.
+
+Safe disable and rollback use the existing local gateway enablement setting
+or stopping only the operator-owned development services. This follow-up does
+not modify existing user services or content-free workspace records.
+
 Required proof:
 
 - `tests/test_uaa_p1_074_chat_local_operator_surface.py`
