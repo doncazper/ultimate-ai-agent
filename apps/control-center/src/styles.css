@@ -8470,12 +8470,13 @@ body:has(.surface-chat) { padding: 0; }
   gap: 0;
   height: 100%;
   min-height: 0;
-  padding: 18px 12px;
+  max-height: none;
+  padding: 20px 12px;
   overflow: hidden;
 }
 .surface-chat .window-controls { display: none; }
 .app-shell.surface-chat .brand { gap: 13px; margin: 0 10px 25px; padding: 0; }
-.surface-chat .brand-mark { background: var(--chat-accent); color: white; border-radius: 9px; width: 38px; height: 38px; font-size: 25px; box-shadow: none; }
+.surface-chat .brand-mark { background: var(--chat-accent); color: white; border-radius: 9px; width: 44px; height: 44px; font-size: 28px; box-shadow: none; }
 .surface-chat .brand strong { color: var(--chat-ink); font-size: 18px; line-height: 1.2; }
 .surface-chat .brand small { color: #5c6661; font-size: 12px; margin-top: 4px; }
 .app-shell.surface-chat .nav-stack { display: block; min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
@@ -8495,7 +8496,7 @@ body:has(.surface-chat) { padding: 0; }
 .app-shell.surface-chat .sidebar-runtime { display: flex; gap: 14px; align-items: center; background: transparent; border: 0; padding: 18px 12px 4px; margin: 0; }
 .surface-chat .sidebar-runtime strong { color: #414c46; font-size: 12px; font-weight: 400; }
 .app-shell.surface-chat .workspace { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; background: var(--chat-canvas); }
-.app-shell.surface-chat .topbar { display: flex; flex: 0 0 78px; min-height: 78px; align-items: center; gap: 24px; padding: 0 28px; border-bottom: 1px solid #e6e9e7; background: var(--chat-canvas); position: relative; z-index: 3; }
+.app-shell.surface-chat .topbar { display: flex; flex-direction: row; flex: 0 0 78px; min-height: 78px; align-items: center; gap: 24px; padding: 0 28px; border-bottom: 1px solid #e6e9e7; background: var(--chat-canvas); position: relative; z-index: 3; }
 .surface-chat .chat-route-title { font-size: 20px; font-weight: 600; letter-spacing: -.3px; }
 .surface-chat .chat-local-status { margin-left: auto; color: #515d56; font-size: 12px; white-space: nowrap; }
 .surface-chat .chat-connection-details > summary { display: flex; align-items: center; gap: 12px; border-left: 1px solid #cdd4cf; padding-left: 24px; cursor: pointer; list-style: none; font-size: 12px; }
@@ -8509,7 +8510,7 @@ body:has(.surface-chat) { padding: 0; }
 .surface-chat .local-conversation-toolbar .secondary-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 36px; padding: 7px 14px; border: 1px solid #cfd6d1; border-radius: 8px; background: transparent; color: var(--chat-ink); font-size: 12px; font-weight: 400; box-shadow: none; }
 .surface-chat .local-conversation-toolbar .secondary-button:hover:not(:disabled) { background: #edf0ed; }
 .surface-chat .local-conversation-messages { flex: 1; min-height: 0; max-height: none; overflow-y: auto; overscroll-behavior: contain; width: 100%; margin: 0; padding: 20px max(24px, calc((100% - 790px) / 2)); display: flex; flex-direction: column; gap: 22px; }
-.surface-chat .chat-empty-state { margin: auto 0; text-align: center; padding: 24px 0 40px; }
+.surface-chat .chat-empty-state { margin: auto 0; text-align: center; padding: 24px 0 0; }
 .surface-chat .chat-empty-state h1 { color: #17221c; font-size: 28px; font-weight: 600; letter-spacing: -.6px; line-height: 1.3; margin: 0 0 10px; }
 .surface-chat .chat-empty-state p { color: #737976; font-size: 16px; line-height: 1.5; margin: 0; }
 .surface-chat .local-conversation-message { flex: 0 0 auto; border: 0; background: transparent; border-radius: 0; padding: 0; font-size: 15px; line-height: 1.7; max-width: 100%; overflow-wrap: anywhere; }
@@ -8520,7 +8521,7 @@ body:has(.surface-chat) { padding: 0; }
 .surface-chat .chat-compose-area { flex: 0 0 auto; width: min(920px, calc(100% - 48px)); margin: 12px auto 60px; }
 .surface-chat .chat-composer { background: white; border: 1px solid #b9c2bc; border-radius: 15px; padding: 14px 14px 10px; }
 .surface-chat .chat-composer:focus-within { border-color: var(--chat-accent); box-shadow: 0 0 0 2px #32665015; }
-.surface-chat .chat-composer textarea { display: block; width: 100%; min-height: 46px; max-height: 150px; resize: none; border: 0; border-radius: 0; background: transparent; color: var(--chat-ink); font-family: inherit; font-size: 15px; line-height: 1.6; padding: 0 2px; margin: 0 0 8px; outline: none; box-shadow: none; }
+.surface-chat .chat-composer textarea { display: block; width: 100%; min-height: 46px; max-height: 150px; resize: none; border: 0; border-radius: 0; background: transparent; color: var(--chat-ink); font-family: inherit; font-size: 16px; line-height: 1.6; padding: 0 2px; margin: 0 0 8px; outline: none; box-shadow: none; }
 .surface-chat .chat-composer textarea::placeholder { color: #828984; opacity: 1; }
 .surface-chat .chat-composer-controls { display: flex; align-items: center; gap: 12px; min-height: 36px; }
 .surface-chat .chat-model-choice { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -8529,7 +8530,7 @@ body:has(.surface-chat) { padding: 0; }
 .surface-chat .chat-model-choice select { width: auto; max-width: 260px; min-height: 32px; border: 0; padding: 4px 4px; background: transparent; color: var(--chat-ink); font-size: 12px; font-family: inherit; text-overflow: ellipsis; }
 .surface-chat .chat-model-choice select:disabled { color: #535d57; opacity: 1; }
 .surface-chat .chat-keyboard-hint { margin-left: auto; color: var(--chat-muted); white-space: nowrap; font-size: 11px; }
-.surface-chat .chat-send-button { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 36px; flex: 0 0 42px; border: 0; border-radius: 8px; background: var(--chat-accent); color: white; cursor: pointer; }
+.surface-chat .chat-send-button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 40px; flex: 0 0 48px; border: 0; border-radius: 8px; background: var(--chat-accent); color: white; cursor: pointer; }
 .surface-chat .chat-send-button:hover:not(:disabled) { background: #24533d; }
 .surface-chat .chat-send-button:disabled { background: #e4e9e5; color: #8a958e; cursor: not-allowed; }
 .surface-chat .chat-footer { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 14px; color: var(--chat-muted); font-size: 11px; }
@@ -8540,7 +8541,7 @@ body:has(.surface-chat) { padding: 0; }
 .surface-chat .chat-turn-notice { width: 100%; }
 .chat-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .surface-chat :is(button, select, summary, a, [tabindex]):focus-visible { outline: 2px solid var(--chat-accent); outline-offset: 3px; }
-.app-shell.surface-chat .nav-stack a { min-height: 42px; font-size: 14px; }
+.app-shell.surface-chat .nav-stack a { min-height: 44px; font-size: 15px; }
 .surface-chat .nav-icon .north-star-icon,
 .surface-chat .sidebar-runtime > .north-star-icon { color: #53625a; }
 .surface-chat .nav-stack a.active .north-star-icon { color: #326650; }
@@ -8549,7 +8550,7 @@ body:has(.surface-chat) { padding: 0; }
 .surface-chat .chat-empty-state p { font-size: 18px; }
 .surface-chat .local-conversation-toolbar .secondary-button { min-height: 42px; padding: 8px 18px; font-size: 14px; }
 .surface-chat .chat-footer { font-size: 12px; }
-.surface-chat .chat-model-choice select { font-size: 13px; }
+.surface-chat .chat-model-choice select { font-size: 14px; }
 .surface-chat .chat-connection-details > summary,
 .surface-chat .chat-local-status { font-size: 13px; }
 .surface-chat .app-main > [data-critical-backend-truth] { display: flex; flex-direction: column; gap: 16px; margin: 24px; max-width: 800px; overflow-y: auto; padding: 28px; border: 1px solid var(--chat-border); border-radius: 12px; }
@@ -8581,7 +8582,7 @@ body:has(.surface-chat) { padding: 0; }
   .surface-chat .chat-keyboard-hint { display: none; }
   .surface-chat .chat-model-choice { flex: 1; }
   .surface-chat .chat-model-choice select { max-width: 220px; width: 100%; }
-  .surface-chat .chat-footer { gap: 8px; font-size: 9px; }
+  .surface-chat .chat-footer { gap: 8px; font-size: 11px; flex-wrap: wrap; }
   .surface-chat .chat-details > summary { padding-left: 8px; gap: 4px; }
   .surface-chat .chat-details-content { right: 14px; left: 14px; padding: 14px; }
 }
