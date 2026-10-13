@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -374,7 +375,12 @@ def _validate_loopback_base_url(base_url: str) -> str:
 
 def _validate_model_id(model_id: str) -> None:
     _validate_safe_text(model_id, "model_id", max_length=120)
-    if "/" in model_id or "\\" in model_id or ".." in model_id:
+    # Local OpenAI-compatible servers use namespace/model identifiers. This is
+    # JSON data only, never a path or URL; approval still requires exact equality.
+    if ".." in model_id or re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)?",
+        model_id,
+    ) is None:
         raise ValueError("M164_MODEL_ID_UNSAFE")
 
 

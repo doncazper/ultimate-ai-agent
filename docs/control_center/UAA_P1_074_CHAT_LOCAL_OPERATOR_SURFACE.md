@@ -130,6 +130,9 @@ explicit conversation context, with 32,000 characters per draft. These are
 client buffer limits, not a claim about model context capacity. The existing
 Python gateway continues to validate model identity, roles, output bounds,
 loopback transport, authentication, and tools/functions/streaming denial.
+Local model IDs may use a bounded namespace/model form, including the configured
+Qwen 3.8 27B ID. Absolute paths, traversal, URLs and additional path segments stay
+denied; the requested model must still exactly equal the configured model.
 No provider transport, cloud call, tool runtime, persistent transcript, or
 automatic memory write is added.
 

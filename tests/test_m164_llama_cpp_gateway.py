@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
+import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
 from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
 from ultimate_ai_agent.core.local_model_management import (
     DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY,
@@ -172,7 +173,7 @@ def test_m164_gateway_rejects_exact_prompt_echo() -> None:
             "M164_TOOLS_DENIED",
         ),
         (
-            {"model": "unsafe/model", "messages": [{"role": "user", "content": "hi"}]},
+            {"model": "unsafe/../model", "messages": [{"role": "user", "content": "hi"}]},
             "M164_MODEL_ID_UNSAFE",
         ),
     ],
@@ -189,6 +190,44 @@ def test_m164_api_models_endpoint_uses_llama_cpp_mode_when_enabled(monkeypatch: 
 
     assert response.status_code == 200
     assert response.json()["data"][0]["id"] == DEFAULT_UAA_LLAMA_CPP_MODEL_ID
+
+
+def test_m164_namespaced_model_works_through_existing_api_without_alias_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_gateway(monkeypatch)
+    model_id = "qwen/qwen3.8-27b"
+    monkeypatch.setenv("UAA_LLAMA_CPP_MODEL_ID", model_id)
+    transport = FakeM164GatewayTransport(content="y" * 12)
+    monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
+    assert client.get("/v1/models", headers=_headers()).json()["data"][0]["id"] == model_id
+    response = client.post(
+        "/v1/chat/completions", headers=_headers(),
+        json={"model": model_id, "messages": [{"role": "user", "content": "x" * 8}]},
+    )
+    assert response.status_code == 200
+    assert response.json()["model"] == model_id
+    assert response.json()["uaa_safety"]["tools_enabled"] is False
+    assert len(transport.calls) == 1
+    assert transport.calls[0].model == model_id
+    denied = client.post(
+        "/v1/chat/completions", headers=_headers(),
+        json={"model": "different/model", "messages": [{"role": "user", "content": "x" * 8}]},
+    )
+    assert denied.status_code == 422
+    assert len(transport.calls) == 1
+
+
+@pytest.mark.parametrize("model_id", [
+    "/absolute-model", "../model", "namespace/../model", "namespace//model",
+    "namespace/model/extra", "namespace/", "namespace\\model", "https://example.invalid/model",
+    "namespace/model?extra", "namespace/%2fmodel", "namespace/ model", "model\nheader",
+])
+def test_m164_namespaced_ids_still_reject_paths_and_ambiguous_identifiers(model_id: str) -> None:
+    with pytest.raises(ValueError):
+        M164LocalGatewayModel(model_id=model_id)
+    with pytest.raises(ValueError):
+        M164ChatCompletionRequest(model=model_id, messages=[{"role": "user", "content": "x"}])
 
 
 def test_m164_api_requires_gateway_bearer_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
