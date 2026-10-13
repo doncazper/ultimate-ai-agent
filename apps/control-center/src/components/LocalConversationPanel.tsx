@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   LOCAL_CONVERSATION_CHARACTER_LIMIT,
@@ -7,6 +7,7 @@ import {
   type LocalConversationMessage,
 } from "../api/client";
 import type { LocalModelsInspectionStatus } from "../api/types";
+import { NorthStarIcon } from "./NorthStarIcon";
 
 // Transient input and returned display text only. The Python gateway owns the
 // turn contract, model authorization and safety receipt. Never persist bodies.
@@ -38,15 +39,20 @@ export function resetLocalConversationForTests() {
 }
 
 export function LocalConversationPanel({
-  models, onReconnect,
+  models, onReconnect, children,
 }: {
   models: LocalModelsInspectionStatus;
   onReconnect: () => void;
+  children?: ReactNode;
 }) {
   const conversation = useSyncExternalStore(subscribe, snapshot);
+  const transcript = useRef<HTMLDivElement>(null);
   const modelId = conversation.modelId || models.selectedModelId || models.modelIds[0] || "";
   const ready = models.state === "ready" && models.modelIds.includes(modelId);
   const canSend = ready && !conversation.sending && Boolean(conversation.draft.trim());
+  useEffect(() => {
+    if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight;
+  }, [conversation.messages.length, conversation.sending]);
 
   async function send() {
     // Synchronous tab-owned lock also covers rapid clicks and route remounts.
@@ -82,67 +88,88 @@ export function LocalConversationPanel({
   }
 
   return (
-    <section className="panel local-conversation" aria-labelledby="local-conversation-heading">
-      <div className="panel-heading">
-        <h2 id="local-conversation-heading">Talk to your model</h2>
-        <span>{conversation.sending ? "Thinking…" : ready ? "Connected locally" : "Connection needed"}</span>
-      </div>
+    <section className="local-conversation" aria-label="Local conversation">
       <div className="local-conversation-toolbar">
-        <label className="field-label" htmlFor="conversation-model">Local model</label>
-        <select
-          id="conversation-model" value={modelId}
-          disabled={conversation.sending || conversation.messages.length > 0}
-          onChange={(event) => replaceConversation({ ...conversation, modelId: event.target.value })}
-        >
-          {models.modelIds.length === 0 ? <option value="">No model connected</option> : null}
-          {models.modelIds.map((id) => <option key={id} value={id}>{id}</option>)}
-        </select>
-        <button className="secondary-button" type="button" disabled={conversation.sending} onClick={onReconnect}>
-          Reconnect
-        </button>
         <button
           className="secondary-button" type="button" disabled={conversation.sending}
           onClick={() => replaceConversation(emptyConversation())}
         >
-          New chat
+          <NorthStarIcon name="plus" size="lg" /> New chat
+        </button>
+        <button className="secondary-button" type="button" disabled={conversation.sending} onClick={onReconnect}>
+          <NorthStarIcon name="refresh-cw" size="sm" /> Reconnect
         </button>
       </div>
-      {!ready ? <p role="status">{models.safeMessage}</p> : null}
-      <div className="local-conversation-messages" role="log" aria-label="Conversation" aria-live="polite">
+      {!ready ? <p className="chat-connection-notice" role="status">{models.safeMessage}</p> : null}
+      <div ref={transcript} className="local-conversation-messages" role="log" aria-label="Conversation" aria-live="polite" tabIndex={0}>
         {conversation.messages.length === 0 ? (
-          <p className="muted-copy">Ask a question to begin. Only messages in this chat are sent to your local model.</p>
+          <div className="chat-empty-state">
+            <h1>Talk to your model</h1>
+            <p>A clear space to think, ask, and work things through.</p>
+          </div>
         ) : conversation.messages.map((message, index) => (
           <article className={"local-conversation-message " + message.role} key={index}>
             <strong>{message.role === "user" ? "You" : "Model"}</strong>
             <div>{message.content}</div>
           </article>
         ))}
-        {conversation.sending ? <p role="status">Waiting for your local model…</p> : null}
+        {conversation.sending ? <p className="chat-pending" role="status">Waiting for your local model…</p> : null}
       </div>
-      <label className="field-label" htmlFor="conversation-message">Message</label>
-      <textarea
-        id="conversation-message" rows={4} maxLength={32_000}
-        value={conversation.draft} disabled={conversation.sending}
-        placeholder="What would you like help with?"
-        onChange={(event) => replaceConversation({ ...conversation, draft: event.target.value })}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            void send();
-          }
-        }}
-      />
-      <div className="decision-button-row">
-        <button className="primary-button" type="button" disabled={!canSend} onClick={() => void send()}>
-          {conversation.sending ? "Sending…" : "Send"}
-        </button>
-        <span className="muted-copy">Enter to send · Shift+Enter for a new line</span>
+      <div className="chat-compose-area">
+        {conversation.notice ? <p className="chat-turn-notice" role="alert">{conversation.notice}</p> : null}
+        <div className="chat-composer">
+          <label className="chat-sr-only" htmlFor="conversation-message">Message</label>
+          <textarea
+            id="conversation-message" rows={2} maxLength={32_000}
+            value={conversation.draft} disabled={conversation.sending}
+            placeholder="What would you like help with?"
+            aria-describedby="chat-keyboard-hint"
+            onChange={(event) => replaceConversation({ ...conversation, draft: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void send();
+              }
+            }}
+          />
+          <div className="chat-composer-controls">
+            <div className="chat-model-choice">
+              <span className={`chat-connection-dot ${ready ? "ready" : ""}`} aria-hidden="true" />
+              <label className="chat-sr-only" htmlFor="conversation-model">Local model</label>
+              <select
+                id="conversation-model" value={modelId} title={modelId || "No model connected"}
+                disabled={conversation.sending || conversation.messages.length > 0}
+                onChange={(event) => replaceConversation({ ...conversation, modelId: event.target.value })}
+              >
+                {models.modelIds.length === 0 ? <option value="">No model connected</option> : null}
+                {models.modelIds.map((id) => <option key={id} value={id}>{id === "qwen/qwen3.8-27b" ? "Qwen 3.8 27B" : id}</option>)}
+              </select>
+              <span className="chat-sr-only">{ready ? "Connected locally" : "Connection needed"}</span>
+            </div>
+            <span className="chat-keyboard-hint" id="chat-keyboard-hint">
+              Enter to send<span className="chat-sr-only"> · Shift+Enter for a new line</span>
+            </span>
+            <button
+              className="chat-send-button" type="button" disabled={!canSend}
+              aria-label={conversation.sending ? "Sending…" : "Send"}
+              title={conversation.sending ? "Sending…" : "Send"} onClick={() => void send()}
+            >
+              <NorthStarIcon name={conversation.sending ? "loader-circle" : "send"} size="lg" motion={conversation.sending ? "spin" : "none"} />
+            </button>
+          </div>
+        </div>
+        <div className="chat-footer">
+          <span>This tab only <span aria-hidden="true">·</span> No tools or external actions</span>
+          <details className="chat-details">
+            <summary>Details <NorthStarIcon name="chevron-down" size="sm" /></summary>
+            <div className="chat-details-content">
+              <p>This conversation stays in this tab and is lost on reload. Replies are model output, not verified facts. No tools, memory writes, or external actions run.</p>
+              <p>Only messages in this chat are sent to your local model. Start a new chat to switch models.</p>
+              {children}
+            </div>
+          </details>
+        </div>
       </div>
-      {conversation.notice ? <p role="alert">{conversation.notice}</p> : null}
-      <p className="muted-copy">
-        This conversation stays in this tab and is lost on reload. Replies are model output, not verified facts.
-        No tools, memory writes, or external actions run.
-      </p>
     </section>
   );
 }

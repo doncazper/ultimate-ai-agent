@@ -28,6 +28,31 @@ beforeEach(() => {
   api.requestLocalConversationTurn.mockResolvedValue(reply);
 });
 describe("main local conversation", () => {
+  it("keeps safety details reachable without crowding the initial conversation", () => {
+    render(<LocalConversationPanel models={ready} onReconnect={vi.fn()}><h2>Diagnostic proof</h2></LocalConversationPanel>);
+    expect(screen.getByRole("heading", { name: "Talk to your model" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Diagnostic proof" })).not.toBeVisible();
+    fireEvent.click(screen.getByText("Details", { selector: "summary" }));
+    expect(screen.getByRole("heading", { name: "Diagnostic proof" })).toBeVisible();
+    expect(screen.getByText(/lost on reload/)).toBeVisible();
+    expect(api.requestLocalConversationTurn).not.toHaveBeenCalled();
+  });
+  it("reconnects only on command and uses the real namespaced model value", () => {
+    const reconnect = vi.fn();
+    render(<LocalConversationPanel models={{ ...ready, selectedModelId: "qwen/qwen3.8-27b", modelIds: ["qwen/qwen3.8-27b"] }} onReconnect={reconnect} />);
+    expect(screen.getByLabelText("Local model")).toHaveValue("qwen/qwen3.8-27b");
+    expect(screen.getByRole("option", { name: "Qwen 3.8 27B" })).toBeInTheDocument();
+    expect(reconnect).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+    expect(reconnect).toHaveBeenCalledTimes(1);
+    expect(api.requestLocalConversationTurn).not.toHaveBeenCalled();
+  });
+  it("does not send while an input-method composition is active", () => {
+    setup();
+    enter("x".repeat(8));
+    fireEvent.keyDown(screen.getByLabelText("Message"), { key: "Enter", isComposing: true });
+    expect(api.requestLocalConversationTurn).not.toHaveBeenCalled();
+  });
   it("does not call a model on mount or while drafting", () => {
     setup();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();

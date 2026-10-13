@@ -345,7 +345,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   }
 
   return (
-    <section className="page-section" aria-labelledby="chat-shell-heading">
+    <section className="chat-operator-surface" aria-label="Chat">
+      <LocalConversationPanel
+        models={models}
+        onReconnect={() => { void inspectLocalModelsRoute().then(setModels); }}
+      >
       <OperatorHeader
         eyebrow="Local operator flow"
         headingId="chat-shell-heading"
@@ -354,10 +358,6 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         summary="Talk to your local model through the authenticated UAA gateway. Conversation text stays transient; tools and external actions remain disabled."
       />
 
-      <LocalConversationPanel
-        models={models}
-        onReconnect={() => { void inspectLocalModelsRoute().then(setModels); }}
-      />
       <details>
         <summary>Content-free draft checkpoints</summary>
         <ChatWorkspacePanel />
@@ -708,6 +708,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <OperatorStepStrip steps={[localModelStep, chatStep]} />
       <OperatorSurfaceStates surface="Chat Local Operator" />
+      </LocalConversationPanel>
     </section>
   );
 }

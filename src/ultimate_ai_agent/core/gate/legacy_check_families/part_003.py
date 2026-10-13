@@ -1639,6 +1639,7 @@ class FoundationGateLegacyChecksPart003Mixin:
             "postFinanceWorkspace",
             "chatThreadApprovalEndpoint(threadRef)",
             "mutateChatThread",
+            "requestLocalConversationTurn",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:
@@ -1658,6 +1659,10 @@ class FoundationGateLegacyChecksPart003Mixin:
         if post_count != len(allowed_post_targets):
             failures.append(f"unexpected frontend POST declaration count: {post_count}")
         exact_goal_post_bindings = {
+            "requestLocalConversationTurn": (
+                "fetch(API_BASE_POLICY.baseUrl+API_ENDPOINTS.localChatCompletions,"
+                '{method:"POST"',
+            ),
             "prepareRuntimeGoalMutationApproval": (
                 'constendpoint=material.operation==="create"'
                 "?API_ENDPOINTS.runtimeGoalApprovalPrepareCreate"

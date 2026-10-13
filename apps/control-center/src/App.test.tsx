@@ -9,6 +9,14 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+async function openChatDiagnostics() {
+  const details = await screen.findByText("Details", { selector: "summary" });
+  if (!details.parentElement?.hasAttribute("open")) fireEvent.click(details);
+  const connection = screen.getByText("Connection & safety", { selector: "summary" });
+  if (!connection.parentElement?.hasAttribute("open")) fireEvent.click(connection);
+  return screen.findByRole("heading", { name: /^Chat Local Operator$/i });
+}
+
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
   useCriticalBackendTruth: () => ({
     status: "ready",
@@ -3511,6 +3519,7 @@ describe("Web Control Center shell", () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
       "Today",
+      "Chat",
       "Messenger",
       "News & Signals",
       "Finance",
@@ -3548,9 +3557,10 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 14)).toEqual([
+    expect(labels.slice(0, 15)).toEqual([
       "Start Here",
       "Today",
+      "Chat",
       "Messenger",
       "News & Signals",
       "Finance",
@@ -6822,7 +6832,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
@@ -6859,7 +6869,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
@@ -6899,7 +6909,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
@@ -6952,7 +6962,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
@@ -6998,7 +7008,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(
       screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
@@ -8499,7 +8509,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     fireEvent.click(
       await screen.findByRole("button", {
@@ -8772,7 +8782,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+      await openChatDiagnostics(),
     ).toBeInTheDocument();
     expect(screen.getByText("Harness contract").nextElementSibling).toHaveTextContent(
       "not bound",
@@ -9510,7 +9520,7 @@ describe("Web Control Center shell", () => {
       ["/dashboard", /Dashboard overview/i],
       ["/operator-loop", /Operator Loop/i],
       ["/differentiators", /Control Center Differentiators/i],
-      ["/chat", /^Chat Local Operator$/i],
+      ["/chat", /^Talk to your model$/i],
       ["/plans", /^Plans$/i],
       ["/models", /^Models$/i],
       ["/runtime", /Runtime readiness/i],
@@ -14478,6 +14488,7 @@ describe("Web Control Center shell", () => {
       mockFetchWithFallback();
       window.history.pushState({}, "", check.path);
       const { unmount } = render(<App />);
+      if (check.path === "/chat") await openChatDiagnostics();
 
       expect(
         await screen.findByRole("heading", { name: check.heading }),
@@ -14495,9 +14506,11 @@ describe("Web Control Center shell", () => {
       expect(
         screen.queryByRole("button", { name: /^run$/i }),
       ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /^send$/i }),
-      ).not.toBeInTheDocument();
+      if (check.path === "/chat") {
+        expect(screen.getByRole("button", { name: /^send$/i })).toBeDisabled();
+      } else {
+        expect(screen.queryByRole("button", { name: /^send$/i })).not.toBeInTheDocument();
+      }
       expect(
         screen.queryByRole("button", { name: /^approve$/i }),
       ).not.toBeInTheDocument();
@@ -14618,6 +14631,7 @@ describe("Web Control Center shell", () => {
       mockFetchWithFallback();
       window.history.pushState({}, "", check.path);
       const { unmount } = render(<App />);
+      if (check.path === "/chat") await openChatDiagnostics();
 
       expect(
         await screen.findByRole("heading", { name: check.heading }),
@@ -14637,9 +14651,11 @@ describe("Web Control Center shell", () => {
       expect(
         screen.queryByText(/v0\.43\.0 M39 context proposal surface/i),
       ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /^send$/i }),
-      ).not.toBeInTheDocument();
+      if (check.path === "/chat") {
+        expect(screen.getByRole("button", { name: /^send$/i })).toBeDisabled();
+      } else {
+        expect(screen.queryByRole("button", { name: /^send$/i })).not.toBeInTheDocument();
+      }
       expect(
         screen.queryByRole("button", { name: /^run$/i }),
       ).not.toBeInTheDocument();

@@ -1246,6 +1246,13 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     ? { ...state.data, founderActionsInbox: actionInboxOverride }
     : state.data;
   const routeState = state.data.routeStates[activePath];
+  const routeDetails = <>
+    <ConnectionStatus connection={visibleData.connection} routeState={routeState} />
+    {visibleData.runtimeInterfaceMode.interface_enabled ? (
+      <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
+    ) : null}
+    <RouteStatePanel state={getRouteStateDescriptor(activePath, visibleData.connection, routeState)} />
+  </>;
 
   return (
     <AppShell
@@ -1262,6 +1269,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
         visibleData.settingsStatus.authority_lease_state.kill_switch_visible
       }
       routeState={routeState}
+      routeDetails={activePath === "/chat" ? routeDetails : undefined}
     >
       {revisionRefreshFailed ? (
         <SafeAlert
@@ -1270,20 +1278,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           tone="warning"
         />
       ) : null}
-      <ConnectionStatus
-        connection={visibleData.connection}
-        routeState={routeState}
-      />
-      {visibleData.runtimeInterfaceMode.interface_enabled ? (
-        <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
-      ) : null}
-      <RouteStatePanel
-        state={getRouteStateDescriptor(
-          activePath,
-          visibleData.connection,
-          routeState,
-        )}
-      />
+      {activePath !== "/chat" ? routeDetails : null}
       <BackendTruthMutationBindingProvider binding={truthReadBinding}>
         {renderRoute(activePath, visibleData)}
       </BackendTruthMutationBindingProvider>

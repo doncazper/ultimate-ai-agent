@@ -15,6 +15,20 @@ public beta, public distribution, or production authority.
 
 `contract-ref:chat-local-operator-surface:v1`
 
+### Main conversation presentation
+
+The first-party Chat now prioritizes the actual local conversation: a compact
+light sidebar, readable contained transcript, and bottom-anchored composer.
+The real model selector, New chat, Reconnect and explicit Send remain wired to
+the existing transient conversation and authenticated loopback gateway.
+Connection & safety exposes backend proof; Details exposes tab lifetime,
+unverified-output warnings and the existing advanced diagnostics/handoffs.
+Neither disclosure changes authority. Missing readiness keeps Send disabled;
+failed turns preserve the draft and do not retry automatically. Narrow screens
+use collapsible navigation. No fake history, cloud, attachment or tool controls
+are added. Raw transcript persistence and packaged-startup qualification remain
+outside this local developer-launch slice.
+
 ## Turn Requirements
 
 Each Chat local operator turn envelope requires:

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   AuthorityTrustMode,
   BackendConnectionSummary,
@@ -25,6 +25,7 @@ interface AppShellProps {
   killSwitchEngaged?: boolean;
   killSwitchVisible?: boolean;
   routeState?: ControlCenterRouteReadState;
+  routeDetails?: ReactNode;
 }
 
 const visibleSupportingLabels = new Set([
@@ -53,7 +54,10 @@ export function AppShell({
   killSwitchEngaged = false,
   killSwitchVisible = false,
   routeState,
+  routeDetails,
 }: AppShellProps) {
+  const isChat = activePath === "/chat";
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const visiblePrimaryLabels = new Set([
     "Start Here",
     "Today",
@@ -146,8 +150,8 @@ export function AppShell({
   const surfaceClass = `surface-${activePath.replace(/^\//, "").replaceAll("/", "-") || "overview"}`;
 
   return (
-    <div className={`app-shell ${surfaceClass}`}>
-      <aside className="sidebar" aria-label="Control Center navigation">
+    <div className={`app-shell ${surfaceClass}${navigationOpen ? " chat-navigation-open" : ""}`} onKeyDown={(event) => { if (event.key === "Escape") setNavigationOpen(false); }}>
+      <aside className="sidebar" id="control-center-navigation" aria-label="Control Center navigation">
         <div className="window-controls" aria-hidden="true">
           <span className="window-dot red" />
           <span className="window-dot yellow" />
@@ -156,8 +160,8 @@ export function AppShell({
         <div className="brand">
           <span className="brand-mark">U</span>
           <span>
-            <strong>AI Agent Control Center</strong>
-            <small>Founder Loop</small>
+            <strong>{isChat ? "UAA" : "AI Agent Control Center"}</strong>
+            <small>{isChat ? "Control Center" : "Founder Loop"}</small>
           </span>
         </div>
         <nav className="nav-stack">
@@ -168,8 +172,8 @@ export function AppShell({
               ))}
             </div>
           </div>
-          <div className="nav-section" aria-label="Supporting surfaces">
-            <p className="nav-section-label">Supporting Surfaces</p>
+          <details className="nav-section supporting-surfaces" aria-label="Supporting surfaces" open={isChat ? undefined : true}>
+            <summary className="nav-section-label">{isChat ? "Supporting surfaces" : "Supporting Surfaces"} <NorthStarIcon name="chevron-down" size="sm" /></summary>
             <div className="supporting-nav-list">
               {supportingItems.map((item) => (
                 <NavLink
@@ -180,18 +184,28 @@ export function AppShell({
                 />
               ))}
             </div>
-          </div>
+          </details>
         </nav>
         <div className="sidebar-runtime" aria-label="Local runtime posture">
-          <span className={`runtime-orb ${backendAuthoritative ? "online" : "check"}`} />
+          {isChat ? <NorthStarIcon name="monitor" size="lg" /> : <span className={`runtime-orb ${backendAuthoritative ? "online" : "check"}`} />}
           <span>
-            <strong>{routeAuthoritative ? "Local route ready" : backendAuthoritative ? "Local runtime" : "Runtime check"}</strong>
-            <small>{loopStatusLabel}</small>
+            <strong>{isChat ? "Local workspace" : routeAuthoritative ? "Local route ready" : backendAuthoritative ? "Local runtime" : "Runtime check"}</strong>
+            {!isChat ? <small>{loopStatusLabel}</small> : null}
           </span>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
+          {isChat ? <>
+            <button className="chat-navigation-toggle" type="button" aria-label={navigationOpen ? "Close navigation" : "Open navigation"} aria-controls="control-center-navigation" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(!navigationOpen)}>
+              <NorthStarIcon name={navigationOpen ? "x" : "menu"} size="lg" />
+            </button>
+            <strong className="chat-route-title">Chat</strong>
+            <span className="chat-local-status">Local only</span>
+          </> : null}
+          <details className={isChat ? "chat-connection-details" : "shell-connection-details"} open={isChat ? undefined : true}>
+          <summary>Connection &amp; safety <NorthStarIcon name="chevron-down" size="sm" /></summary>
+          <div className="shell-connection-content">
           <div className="topbar-route" aria-label="Current surface">
             <strong>{activeRoute}</strong>
             <small>{routeTruthLabel}</small>
@@ -224,6 +238,9 @@ export function AppShell({
             <StatusChip tone={apiBoundaryTone} label={apiBoundaryLabel} />
             <CommandPalette activePath={activePath} />
           </div>
+          {routeDetails}
+          </div>
+          </details>
         </header>
         <main className="app-main">{children}</main>
       </div>

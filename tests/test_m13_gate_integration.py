@@ -86,6 +86,7 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
             "postNewsSignalsAdoptionEnvelope",
             "chatThreadApprovalEndpoint(threadRef)",
         "mutateChatThread",
+        "requestLocalConversationTurn",
     }
     assert client.count('method: "POST"') == len(allowed_post_targets)
     for target in allowed_post_targets:
@@ -98,6 +99,11 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
 @pytest.mark.parametrize(
     ("helper_name", "expected_target", "substituted_target"),
     [
+        (
+            "requestLocalConversationTurn",
+            "API_ENDPOINTS.localChatCompletions",
+            "API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue",
+        ),
         (
             "prepareRuntimeGoalMutationApproval",
             "API_ENDPOINTS.runtimeGoalApprovalPrepareCreate",
