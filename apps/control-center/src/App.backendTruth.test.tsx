@@ -7,10 +7,14 @@ const mocked = vi.hoisted(() => ({
   controlCenterState: {} as unknown,
   truthState: {} as unknown,
   truthEnabled: false,
+  controlCenterScope: "",
 }));
 
 vi.mock("./hooks/useControlCenterData", () => ({
-  useControlCenterData: () => mocked.controlCenterState,
+  useControlCenterData: (_enabled: boolean, _binding: unknown, scope: string) => {
+    mocked.controlCenterScope = scope;
+    return mocked.controlCenterState;
+  },
 }));
 
 vi.mock("./hooks/useCriticalBackendTruth", () => ({
@@ -74,6 +78,7 @@ beforeEach(() => {
     retry: vi.fn(),
   };
   mocked.truthEnabled = false;
+  mocked.controlCenterScope = "";
 });
 
 afterEach(() => {
@@ -235,6 +240,8 @@ describe("critical backend truth boundary", () => {
 
       render(<App />);
 
+      expect(mocked.truthEnabled).toBe(true);
+      expect(mocked.controlCenterScope).toBe("chat");
       if (routeState === "backend_owned") {
         expect(screen.getByRole("heading", { name: "Talk to your model" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();

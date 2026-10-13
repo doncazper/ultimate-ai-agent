@@ -1104,7 +1104,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   const state = useControlCenterData(
     truthAdmitted,
     truthReadBinding,
-    canonicalizeControlCenterPath(activePath) === "/chat" ? "chat"
+    criticalPath && canonicalizeControlCenterPath(activePath) === "/chat" ? "chat"
       : criticalPath && isNewsHandoffRoute(activePath) ? "news-handoff" : "full",
   );
   const loadedActionInbox =
