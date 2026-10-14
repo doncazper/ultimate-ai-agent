@@ -27,7 +27,12 @@ def build_existing_lane_authority_mappings():
         build_matrix_crypto_authority_mappings,
     )
 
+    from ultimate_ai_agent.core.finance.authority_surfaces import (
+        build_finance_managed_setup_authority_mapping,
+    )
+
     return [
+        build_finance_managed_setup_authority_mapping(),
         *build_matrix_crypto_authority_mappings(),
         *build_matrix_session_authority_mappings(),
         *build_matrix_harness_authority_mappings(),

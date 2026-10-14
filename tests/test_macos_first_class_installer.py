@@ -102,6 +102,7 @@ def test_launch_replaces_live_runtime_from_superseded_install(
     from ultimate_ai_agent.core.finance_startup import (
         FINANCE_STARTUP_METADATA_KEY,
         finance_startup_configuration_ref,
+        capture_finance_startup_environment,
     )
 
     paths = RuntimePaths(_layout(tmp_path))
@@ -112,7 +113,7 @@ def test_launch_replaces_live_runtime_from_superseded_install(
         "port": 8765,
         "nonce": "old-runtime-nonce",
         "version_ref": "macos-version:old-version",
-        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(capture_finance_startup_environment(os.environ)),
     }
     terminated: list[dict[str, object]] = []
     written_states: list[dict[str, object]] = []
@@ -193,7 +194,7 @@ def test_packaged_runtime_preserves_only_exact_finance_configuration(
     for name in ["UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"]:
         monkeypatch.setenv(name, "must-not-pass")
     environment = _runtime_environment(local_bearer="local-session-bearer", source_commit="a" * 40)
-    assert finance_startup_environment(environment) == expected
+    assert finance_startup_environment(environment) == {**expected, "UAA_FINANCE_STARTUP_MODE": "invalid"}
     assert not any(name in environment for name in [
         "UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"
     ])
@@ -209,6 +210,7 @@ def test_packaged_finance_reuse_preserves_binding_and_stop(
         FINANCE_STARTUP_METADATA_KEY,
         FINANCE_WORKSPACE_DISABLE_ENV,
         finance_startup_configuration_ref,
+        capture_finance_startup_environment,
     )
     from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
 
@@ -227,7 +229,7 @@ def test_packaged_finance_reuse_preserves_binding_and_stop(
     if recorded != "missing":
         state[FINANCE_STARTUP_METADATA_KEY] = (
             "malformed" if recorded == "malformed" else
-            finance_startup_configuration_ref({} if recorded == "changed" else os.environ)
+            finance_startup_configuration_ref({} if recorded == "changed" else capture_finance_startup_environment(os.environ))
         )
     paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
     original_state = paths.runtime_state.read_bytes()
@@ -423,6 +425,7 @@ def test_packaged_identity_loss_between_launch_probes_preserves_owner(
     from ultimate_ai_agent.core.finance_startup import (
         FINANCE_STARTUP_METADATA_KEY,
         finance_startup_configuration_ref,
+        capture_finance_startup_environment,
     )
     from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
 
@@ -432,7 +435,7 @@ def test_packaged_identity_loss_between_launch_probes_preserves_owner(
         "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
         "pid": 111, "port": 8765, "nonce": "a" * 32,
         "version_ref": "macos-version:same-version",
-        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(capture_finance_startup_environment(os.environ)),
     }
     paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
     original_state = paths.runtime_state.read_bytes()
@@ -592,6 +595,7 @@ def test_packaged_superseded_runtime_is_retained_if_exit_cannot_be_proven(
     from ultimate_ai_agent.core.finance_startup import (
         FINANCE_STARTUP_METADATA_KEY,
         finance_startup_configuration_ref,
+        capture_finance_startup_environment,
     )
     from ultimate_ai_agent.distribution.macos import runtime as macos_runtime
 
@@ -601,7 +605,7 @@ def test_packaged_superseded_runtime_is_retained_if_exit_cannot_be_proven(
         "schema_version": macos_runtime.RUNTIME_STATE_SCHEMA,
         "pid": 111, "port": 8765, "nonce": "a" * 32,
         "version_ref": "macos-version:old-version",
-        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(os.environ),
+        FINANCE_STARTUP_METADATA_KEY: finance_startup_configuration_ref(capture_finance_startup_environment(os.environ)),
     }
     paths.runtime_state.write_text(json.dumps(state), encoding="utf-8")
     original_state = paths.runtime_state.read_bytes()

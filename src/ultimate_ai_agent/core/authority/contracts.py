@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 from ultimate_ai_agent.core.authority.authority_constants import (
     AUTHORITY_BUDGET_RECEIPTS_FILE,
     AUTHORITY_STATE_LOCK_KEY,
+    FINANCE_MANAGED_SETUP_EXACT_AUTHORITY_BINDINGS,
     AUTHORITY_STATE_REDACTIONS,
     MATRIX_HARNESS_EXACT_AUTHORITY_BINDINGS,
     MATRIX_INTELLIGENCE_EXACT_AUTHORITY_BINDINGS,
@@ -1158,6 +1159,7 @@ def _exact_authority_binding_catalog() -> dict[
         adapter,
         tool,
     ) in (
+        *FINANCE_MANAGED_SETUP_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_SESSION_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_SYNC_EXACT_AUTHORITY_BINDINGS,
         *MATRIX_CRYPTO_EXACT_AUTHORITY_BINDINGS,
@@ -1214,6 +1216,11 @@ def _exact_authority_issue_binding(
     if expected is None:
         return None
     expected_domain, expected_capability, expected_scope, expected_mode = expected
+    if exact_binding == FINANCE_MANAGED_SETUP_EXACT_AUTHORITY_BINDINGS[0][4:]:
+        from ultimate_ai_agent.core.finance.managed_setup_authority import (
+            setup_lease_request_is_exact,
+        )
+        return expected if setup_lease_request_is_exact(request) else None
     constraints_by_kind = {
         AuthorityConstraintKind(constraint.kind): constraint
         for constraint in request.authority_constraints

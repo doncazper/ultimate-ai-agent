@@ -528,7 +528,7 @@ def test_start_service_switches_to_next_free_port_when_explicitly_enabled(
         lambda _host, port, **_kwargs: port == launcher.BACKEND_PORT,
     )
     monkeypatch.setattr(launcher, "service_identity_ready", lambda _service: False)
-    monkeypatch.setattr(launcher, "safe_env", lambda _root, _name: {})
+    monkeypatch.setattr(launcher, "safe_env", lambda _root, _name, **_kwargs: {})
     monkeypatch.setattr(launcher, "wait_for_url", lambda _url: True)
     monkeypatch.setattr(launcher, "record_launcher_event", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(launcher.subprocess, "Popen", lambda *_args, **_kwargs: Process())
@@ -1144,7 +1144,7 @@ def test_finance_startup_configuration_is_preserved_only_for_backend(
         monkeypatch.setenv(name, "must-not-pass")
 
     backend = launcher.safe_env(tmp_path, "backend")
-    assert contract.finance_startup_environment(backend) == expected
+    assert contract.finance_startup_environment(backend) == {**expected, contract.FINANCE_STARTUP_MODE_ENV: "invalid"}
     assert not any(name in backend for name in [
         "UAA_FINANCE_CRYPTO_BACKEND", "UAA_FINANCE_EXTRA", "UNRELATED_TOKEN"
     ])
@@ -1215,7 +1215,7 @@ def test_finance_startup_reuse_requires_matching_owned_metadata_and_retains_stop
         metadata[contract.FINANCE_STARTUP_METADATA_KEY] = (
             "malformed" if recorded == "malformed" else
             contract.finance_startup_configuration_ref(
-                {} if recorded == "changed" else launcher.os.environ
+                {} if recorded == "changed" else contract.capture_finance_startup_environment(launcher.os.environ)
             )
         )
     service.metadata_file.write_text(json.dumps(metadata), encoding="utf-8")

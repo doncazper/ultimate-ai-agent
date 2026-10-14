@@ -4,8 +4,10 @@ Current active baseline: **v0.104.0**
 
 The [FIN-003 synthetic in-app workflow](product/UAA_FINANCE_FIN003_SYNTHETIC_IN_APP_WORKFLOW.md)
 documents the shared Core/CLI/API/Control Center slice merged in PR #481.
-Active continuation: [explicit Finance configuration through normal startup](product/UAA_FINANCE_FIN003_NORMAL_STARTUP.md).
-This is not automatic provisioning, real-data promotion, FIN-003 or Q26 completion.
+The [normal startup slice](product/UAA_FINANCE_FIN003_NORMAL_STARTUP.md) merged in
+PR #485. Active candidate: [managed synthetic Finance setup](product/UAA_FINANCE_FIN003_MANAGED_SETUP.md).
+It enrolls a helper/profile through separate confirmation; book/key creation,
+real-data promotion, FIN-003 and Q26 completion remain outside this scope.
 
 This index is the active entrypoint for documentation navigation. Historical release documents remain in the repository for audit history, but active truth starts with the current baseline files listed here.
 

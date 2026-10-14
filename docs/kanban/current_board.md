@@ -1042,8 +1042,11 @@ instead of white-labeling a complete finance product.
 Next: retain the independent FIN-000 gate before real-data, arbitrary file
 import, or higher-authority promotion. Exercise FIN-002A/FIN-002B, the FIN-003
 read-only projection, decision preview and separately governed durable
-disposition/undo through private dogfood after qualification. Normal in-app
-workflows, categorization/corrections and rule proposals remain later scopes.
+disposition/undo through private dogfood after qualification. The bounded
+synthetic in-app workflow merged in PR #481 and explicit normal startup in
+PR #485. The separately admitted managed helper/profile setup candidate is
+documented in `docs/product/UAA_FINANCE_FIN003_MANAGED_SETUP.md`; its qualification
+remains pending. Categorization/corrections and rule proposals remain later scopes.
 The FIN-001 kernel, FIN-002 preview/commit loop and bounded FIN-003 review
 contracts remain synthetic-only.
 Financial/compliance adapters,

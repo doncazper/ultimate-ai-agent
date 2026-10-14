@@ -63,9 +63,10 @@ from ultimate_ai_agent.core.finance.workspace_recovery import (
 )
 from ultimate_ai_agent.core.finance_startup import (
     FINANCE_WORKSPACE_DISABLE_ENV,
-    FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
-    FINANCE_WORKSPACE_HELPER_ENV,
-    FINANCE_WORKSPACE_REPOSITORY_ENV,
+    FINANCE_WORKSPACE_HELPER_DIGEST_ENV as FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
+    FINANCE_WORKSPACE_HELPER_ENV as FINANCE_WORKSPACE_HELPER_ENV,
+    FINANCE_WORKSPACE_REPOSITORY_ENV as FINANCE_WORKSPACE_REPOSITORY_ENV,
+    consume_finance_startup_environment,
 )
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.safe_contract_text import (
@@ -399,19 +400,15 @@ class FinanceWorkspace:
 
     @classmethod
     def from_env(cls) -> "FinanceWorkspace":
-        values = [
-            os.environ.get(name, "")
-            for name in (
-                FINANCE_WORKSPACE_REPOSITORY_ENV,
-                FINANCE_WORKSPACE_HELPER_ENV,
-                FINANCE_WORKSPACE_HELPER_DIGEST_ENV,
-            )
-        ]
-        if not all(values):
+        resolution = consume_finance_startup_environment(os.environ)
+        if resolution.mode == "absent":
             return cls(None)
+        if resolution.mode == "invalid":
+            return cls(None, configuration_error="configuration_invalid")
         try:
             configuration = FinanceWorkspaceConfiguration(
-                Path(values[0]), Path(values[1]), values[2]
+                resolution.repository_dir, resolution.helper_path,
+                resolution.helper_sha256,
             )
         except ValueError:
             return cls(None, configuration_error="configuration_invalid")

@@ -125,9 +125,11 @@ def test_bootstrap_copies_only_exact_core_startup_sources(copied_bootstrap):
 
     assert sorted(path.name for path in copied_core.iterdir()) == [
         "__init__.py",
+        "finance_managed_profile.py",
         "finance_startup.py",
+        "private_path_security.py",
     ]
-    for name in ("__init__.py", "finance_startup.py"):
+    for name in ("__init__.py", "finance_startup.py", "finance_managed_profile.py", "private_path_security.py"):
         assert (copied_core / name).read_bytes() == (
             source_root / "src" / "ultimate_ai_agent" / "core" / name
         ).read_bytes()

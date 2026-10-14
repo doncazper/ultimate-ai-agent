@@ -383,6 +383,16 @@ def command_workspace(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_managed_setup(args: argparse.Namespace) -> int:
+    from ultimate_ai_agent.distribution.macos import installer, runtime
+
+    source_provider = None
+    if args.helper_source == "developer-artifact":
+        def source_provider():
+            return installer.verified_developer_finance_helper(ROOT)
+    return runtime.command_finance_setup(args, source_provider=source_provider)
+
+
 def parser() -> argparse.ArgumentParser:
     """Build the bounded Finance CLI parser."""
 
@@ -392,6 +402,13 @@ def parser() -> argparse.ArgumentParser:
     shared.add_argument("--helper-path", type=Path, required=True)
     shared.add_argument("--helper-sha256", required=True)
     commands = result.add_subparsers(dest="command", required=True)
+    from ultimate_ai_agent.distribution.macos.runtime import add_finance_setup_arguments
+
+    for action in ("inspect", "prepare", "refresh", "run"):
+        setup_action = commands.add_parser(f"setup-{action}")
+        add_finance_setup_arguments(setup_action, action)
+        setup_action.add_argument("--helper-source", choices=("installed", "developer-artifact"), default="installed")
+        setup_action.set_defaults(func=command_managed_setup)
     commands.add_parser("status", parents=[shared]).set_defaults(func=command_status)
     prepare = commands.add_parser("prepare", parents=[shared])
     prepare.add_argument(

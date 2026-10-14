@@ -531,3 +531,11 @@ MATRIX_ROOMS_MEDIA_COMPOSITE_REQUESTED_DOMAINS = {
         "files": ("write",),
     },
 }
+
+FINANCE_MANAGED_SETUP_EXACT_AUTHORITY_BINDINGS = ((
+    "workspace", "write", "session", "ask_before_changes",
+    "authority-lane-ref:finance/FIN-003/managed-setup",
+    "capability-ref:finance/FIN-003/managed-setup",
+    "authority-adapter-ref:finance/FIN-003/managed-profile:v1",
+    "tool-ref:finance/FIN-003/managed-setup:v1",
+),)

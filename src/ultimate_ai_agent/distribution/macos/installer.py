@@ -15,7 +15,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from .contracts import (
     APP_BUNDLE_IDENTIFIER,
@@ -29,6 +29,10 @@ from .contracts import (
     ReleaseDescriptor,
     sha256_file,
 )
+
+
+if TYPE_CHECKING:
+    from ...core.finance_managed_profile import VerifiedFinanceHelper
 
 
 CLI_MARKER = "# uaa-managed-macos-cli-v1"
@@ -942,3 +946,620 @@ def _install_lock(layout: InstallLayout) -> Iterator[None]:
             yield
         finally:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+# FIN003 source adapters observe only these fixed artifacts. They never build or
+# execute a helper, and return captured bytes rather than a path to reopen.
+_FINANCE_PACKAGE = "tools/macos/matrix-protected-cache-helper"
+_FINANCE_SOURCE_FILES = (
+    f"{_FINANCE_PACKAGE}/Package.swift",
+    f"{_FINANCE_PACKAGE}/Sources/UAAMatrixProtectedCacheHelper/main.swift",
+)
+_FINANCE_BUILDER = "scripts/macos/build_finance_helper.py"
+_FINANCE_HELPER = "Contents/Helpers/uaa-matrix-protected-cache-helper"
+_FINANCE_SOURCE_MAX_BYTES = 1024 * 1024
+_FINANCE_METADATA_MAX_BYTES = 64 * 1024
+_FINANCE_INVENTORY_MAX_BYTES = 32 * 1024 * 1024
+
+
+class _FinanceSourceCapture:
+    """One retained, bounded observation of fixed source names, never a writer."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.directories: dict[str, tuple[int, os.stat_result]] = {}
+        self.files: dict[str, tuple[int, os.stat_result, bytes | None]] = {}
+
+    def __enter__(self) -> "_FinanceSourceCapture":
+        from ...core.private_path_security import (
+            require_posix_private_path_support,
+            require_safe_private_ancestor_chain,
+        )
+
+        if not self.root.is_absolute() or ".." in self.root.parts:
+            raise InstallError("FIN003_SOURCE_INVALID")
+        try:
+            require_posix_private_path_support()
+            require_safe_private_ancestor_chain(self.root, purpose="Finance source")
+            self._directory("")
+        except (OSError, ValueError):
+            self.__exit__(None, None, None)
+            raise InstallError("FIN003_SOURCE_INVALID") from None
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        for descriptor, *_ in reversed(tuple(self.files.values())):
+            os.close(descriptor)
+        for descriptor, _ in reversed(tuple(self.directories.values())):
+            os.close(descriptor)
+        self.files.clear()
+        self.directories.clear()
+
+    @staticmethod
+    def _identity(metadata: os.stat_result) -> tuple[int, ...]:
+        from ...core.private_path_security import _private_identity
+
+        return _private_identity(metadata)
+
+    @staticmethod
+    def _metadata(metadata: os.stat_result, *, directory: bool) -> None:
+        valid_type = stat.S_ISDIR if directory else stat.S_ISREG
+        if (
+            not valid_type(metadata.st_mode)
+            or metadata.st_uid not in {0, os.getuid()}
+            or stat.S_IMODE(metadata.st_mode) & 0o7022
+            or (not directory and metadata.st_nlink != 1)
+        ):
+            raise InstallError("FIN003_SOURCE_INVALID")
+
+    def _directory(self, relative: str) -> int:
+        from ...core.private_path_security import _require_no_extended_acl_grants_fd
+
+        relative = "" if relative == "." else relative
+        if (
+            PurePosixPath(relative).is_absolute()
+            or ".." in PurePosixPath(relative).parts
+        ):
+            raise InstallError("FIN003_SOURCE_INVALID")
+        if relative in self.directories:
+            return self.directories[relative][0]
+        path = PurePosixPath(relative)
+        parent = (
+            self._directory(str(path.parent) if str(path.parent) != "." else "")
+            if relative
+            else None
+        )
+        name = path.name if relative else self.root
+        before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        self._metadata(before, directory=True)
+        descriptor = os.open(
+            name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=parent,
+        )
+        try:
+            opened = os.fstat(descriptor)
+            if self._identity(before) != self._identity(opened):
+                raise InstallError("FIN003_SOURCE_CHANGED")
+            _require_no_extended_acl_grants_fd(descriptor, purpose="Finance source")
+            self.directories[relative] = (descriptor, opened)
+        except BaseException:
+            os.close(descriptor)
+            raise
+        return descriptor
+
+    def retain(self, relative: str, maximum: int, *, executable: bool = False) -> None:
+        from ...core.private_path_security import require_no_extended_acl_fd
+
+        if relative in self.files:
+            raise InstallError("FIN003_SOURCE_INVALID")
+        path = PurePosixPath(relative)
+        parent = self._directory(path.parent.as_posix())
+        before = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+        self._metadata(before, directory=False)
+        if not 0 < before.st_size <= maximum or (
+            executable and not before.st_mode & stat.S_IXUSR
+        ):
+            raise InstallError("FIN003_SOURCE_INVALID")
+        descriptor = os.open(
+            path.name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+            dir_fd=parent,
+        )
+        try:
+            opened = os.fstat(descriptor)
+            if self._identity(before) != self._identity(opened):
+                raise InstallError("FIN003_SOURCE_CHANGED")
+            require_no_extended_acl_fd(descriptor, purpose="Finance source")
+            self.files[relative] = (descriptor, opened, None)
+        except BaseException:
+            os.close(descriptor)
+            raise
+
+    def read(self, relative: str, maximum: int, *, executable: bool = False) -> bytes:
+        if relative not in self.files:
+            self.retain(relative, maximum, executable=executable)
+        descriptor, opened, previous = self.files[relative]
+        if previous is not None:
+            raise InstallError("FIN003_SOURCE_INVALID")
+        raw = self._read_bytes(descriptor, maximum)
+        if len(raw) != opened.st_size or self._identity(opened) != self._identity(
+            os.fstat(descriptor)
+        ):
+            raise InstallError("FIN003_SOURCE_CHANGED")
+        self.files[relative] = (descriptor, opened, raw)
+        return raw
+
+    @staticmethod
+    def _read_bytes(descriptor: int, maximum: int) -> bytes:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        chunks: list[bytes] = []
+        remaining = maximum + 1
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 64 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) > maximum:
+            raise InstallError("FIN003_SOURCE_INVALID")
+        return raw
+
+    def recheck(self) -> None:
+        from ...core.private_path_security import (
+            _require_no_extended_acl_grants_fd,
+            require_no_extended_acl_fd,
+            require_safe_private_ancestor_chain,
+        )
+
+        require_safe_private_ancestor_chain(self.root, purpose="Finance source")
+        for relative, (descriptor, before) in self.directories.items():
+            path = PurePosixPath(relative)
+            parent = (
+                self.directories.get(path.parent.as_posix(), self.directories[""])[0]
+                if relative
+                else None
+            )
+            name = path.name if relative else self.root
+            current = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            if any(
+                self._identity(before) != self._identity(item)
+                for item in (current, os.fstat(descriptor))
+            ):
+                raise InstallError("FIN003_SOURCE_CHANGED")
+            _require_no_extended_acl_grants_fd(descriptor, purpose="Finance source")
+        for relative, (descriptor, before, raw) in self.files.items():
+            path = PurePosixPath(relative)
+            parent = self.directories[
+                "" if path.parent.as_posix() == "." else path.parent.as_posix()
+            ][0]
+            current = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            if any(
+                self._identity(before) != self._identity(item)
+                for item in (current, os.fstat(descriptor))
+            ):
+                raise InstallError("FIN003_SOURCE_CHANGED")
+            require_no_extended_acl_fd(descriptor, purpose="Finance source")
+            if raw is not None and (
+                self._read_bytes(descriptor, len(raw)) != raw
+                or self._identity(before) != self._identity(os.fstat(descriptor))
+            ):
+                raise InstallError("FIN003_SOURCE_CHANGED")
+
+
+def _finance_source_inputs(
+    capture: _FinanceSourceCapture,
+) -> tuple[tuple[bytes, ...], bytes]:
+    # Ignore only known non-input directories. Extra Swift targets or dependency
+    # manifests would change the fixed build recipe and are rejected.
+    package = capture._directory(_FINANCE_PACKAGE)
+    if set(os.listdir(package)) - {
+        "Package.swift",
+        "Sources",
+        "README.md",
+        ".build",
+        ".uaa-artifacts",
+    }:
+        raise InstallError("FIN003_BUILD_RECIPE_CHANGED")
+    sources = capture._directory(f"{_FINANCE_PACKAGE}/Sources")
+    target = capture._directory(
+        f"{_FINANCE_PACKAGE}/Sources/UAAMatrixProtectedCacheHelper"
+    )
+    if set(os.listdir(sources)) != {"UAAMatrixProtectedCacheHelper"} or set(
+        os.listdir(target)
+    ) != {"main.swift"}:
+        raise InstallError("FIN003_BUILD_RECIPE_CHANGED")
+    raw = tuple(
+        capture.read(path, _FINANCE_SOURCE_MAX_BYTES) for path in _FINANCE_SOURCE_FILES
+    )
+    builder = capture.read(_FINANCE_BUILDER, _FINANCE_SOURCE_MAX_BYTES)
+    return raw, builder
+
+
+def _finance_macho_architecture(raw: bytes) -> str:
+    import struct
+
+    if len(raw) < 32 or raw[:4] != b"\xcf\xfa\xed\xfe":
+        raise InstallError("FIN003_HELPER_ARCHITECTURE_INVALID")
+    cpu, _subtype, filetype = struct.unpack_from("<III", raw, 4)
+    if filetype != 2 or cpu not in {0x0100000C, 0x01000007}:
+        raise InstallError("FIN003_HELPER_ARCHITECTURE_INVALID")
+    return {0x0100000C: "arm64", 0x01000007: "x86_64"}[cpu]
+
+
+def _finance_signature_kind(path: Path) -> str:
+    import selectors
+
+    try:
+        _verify_installed_application(path)
+    except (InstallError, OSError, subprocess.SubprocessError):
+        raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID") from None
+    # The fixed details process has a hard output bound as well as a deadline.
+    # No signing output or raw source path is retained in evidence or exceptions.
+    child = subprocess.Popen(
+        ["/usr/bin/codesign", "-d", "--verbose=4", str(path)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    raw = bytearray()
+    deadline = time.monotonic() + 30.0
+    try:
+        assert child.stdout is not None
+        with selectors.DefaultSelector() as selector:
+            selector.register(child.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or not selector.select(remaining):
+                    raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+                chunk = os.read(child.stdout.fileno(), 4096)
+                if not chunk:
+                    break
+                raw.extend(chunk)
+                if len(raw) > _FINANCE_METADATA_MAX_BYTES:
+                    raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+        if child.wait(timeout=max(0.001, deadline - time.monotonic())) != 0:
+            raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+    finally:
+        try:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=5.0)
+        finally:
+            if child.stdout is not None:
+                child.stdout.close()
+    lines = bytes(raw).decode("utf-8", errors="strict").splitlines()
+    if "Signature=adhoc" in lines:
+        return "ad-hoc"
+    if any(
+        line.startswith("Authority=Developer ID Application:") for line in lines
+    ) and any(
+        "runtime" in line.lower() for line in lines if line.startswith("CodeDirectory ")
+    ):
+        return "developer-id"
+    raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+
+
+def _finance_json(raw: bytes) -> dict[str, Any]:
+    # Check container depth before constructing objects; quoted delimiters do
+    # not count. Byte limits are imposed by the fixed descriptor reader.
+    depth = 0
+    quoted = False
+    escaped = False
+    for value in raw:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif value == 92:
+                escaped = True
+            elif value == 34:
+                quoted = False
+        elif value == 34:
+            quoted = True
+        elif value in (91, 123):
+            depth += 1
+            if depth > 32:
+                raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+        elif value in (93, 125):
+            depth -= 1
+
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in items:
+            if key in value:
+                raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+            value[key] = item
+        return value
+
+    def invalid_constant(_value: str) -> None:
+        raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+
+    value = json.loads(raw, object_pairs_hook=pairs, parse_constant=invalid_constant)
+    if not isinstance(value, dict):
+        raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+    return value
+
+
+def _finance_verified_helper(
+    raw: bytes, source: Any, *, architecture: str, signing_kind: str
+) -> Any:
+    import hashlib
+    from dataclasses import replace
+    from ...core.finance_managed_profile import (
+        MANAGED_HELPER_VERSION_REF,
+        FinanceManagedHelperIdentityV1,
+        VerifiedFinanceHelper,
+        managed_ref,
+        managed_wire_payload,
+        validate_managed_record,
+    )
+
+    helper = FinanceManagedHelperIdentityV1(
+        schema_version="uaa-finance-managed-helper.v1",
+        helper_ref="pending:helper",
+        helper_fingerprint_ref="helper-bytes-ref:sha256:"
+        + hashlib.sha256(raw).hexdigest(),
+        helper_size_bytes=len(raw),
+        helper_version_ref=MANAGED_HELPER_VERSION_REF,
+        architecture=architecture,
+        source=source,
+        signing_kind=signing_kind,
+        publisher_verified=False,
+        source_attestation_verified=False,
+    )
+    payload = managed_wire_payload(helper)
+    del payload["helper_ref"]
+    helper = replace(helper, helper_ref=managed_ref("helper", payload))
+    validate_managed_record(helper)
+    return VerifiedFinanceHelper(identity=helper, executable_bytes=raw)
+
+
+def verified_developer_finance_helper(source_root: Path) -> VerifiedFinanceHelper:
+    """Verify the fixed current-architecture build artifact without executing it."""
+    import hashlib
+    from dataclasses import replace
+    from ...core.finance_managed_profile import (
+        MANAGED_BUILD_MANIFEST_MAX_BYTES,
+        MANAGED_HELPER_MAX_BYTES,
+        DeveloperBuildSourceV1,
+        managed_ref,
+        managed_wire_payload,
+        parse_helper_build_manifest,
+    )
+    from .contracts import current_architecture
+
+    try:
+        architecture = current_architecture()
+        artifact = f"{_FINANCE_PACKAGE}/.uaa-artifacts/{architecture}"
+        with _FinanceSourceCapture(source_root) as capture:
+            source_bytes, builder_bytes = _finance_source_inputs(capture)
+            manifest = parse_helper_build_manifest(
+                capture.read(
+                    f"{artifact}/helper-manifest-v1.json",
+                    MANAGED_BUILD_MANIFEST_MAX_BYTES,
+                )
+            )
+            raw = capture.read(
+                f"{artifact}/helper", MANAGED_HELPER_MAX_BYTES, executable=True
+            )
+            if (
+                manifest.architecture != architecture
+                or _finance_macho_architecture(raw) != architecture
+                or manifest.helper_sha256 != hashlib.sha256(raw).hexdigest()
+                or manifest.helper_size_bytes != len(raw)
+                or manifest.builder_sha256 != hashlib.sha256(builder_bytes).hexdigest()
+                or tuple(
+                    (item.source_ref, item.sha256) for item in manifest.source_files
+                )
+                != tuple(
+                    ("repo-ref:" + name, hashlib.sha256(content).hexdigest())
+                    for name, content in zip(
+                        _FINANCE_SOURCE_FILES, source_bytes, strict=True
+                    )
+                )
+            ):
+                raise InstallError("FIN003_BUILD_ARTIFACT_STALE")
+            capture.recheck()
+            if _finance_signature_kind(source_root / artifact / "helper") != "ad-hoc":
+                raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+            capture.recheck()
+            source = DeveloperBuildSourceV1(
+                kind="verified_developer_artifact",
+                source_provenance_ref="pending:source",
+                build_manifest_ref=manifest.manifest_ref,
+                source_fingerprint_ref=manifest.source_fingerprint_ref,
+                builder_fingerprint_ref=managed_ref(
+                    "builder",
+                    {
+                        "builder_source_ref": manifest.builder_source_ref,
+                        "builder_sha256": manifest.builder_sha256,
+                    },
+                ),
+                build_recipe_ref=manifest.build_recipe_ref,
+                artifact_selector_ref=manifest.artifact_selector_ref,
+                verification="current-source-and-build-manifest-match",
+            )
+            payload = managed_wire_payload(source)
+            del payload["source_provenance_ref"]
+            source = replace(
+                source, source_provenance_ref=managed_ref("source", payload)
+            )
+            return _finance_verified_helper(
+                raw, source, architecture=architecture, signing_kind="ad-hoc"
+            )
+    except (OSError, ValueError, subprocess.SubprocessError, RecursionError):
+        raise InstallError("FIN003_DEVELOPER_SOURCE_INVALID") from None
+
+
+def verified_installed_finance_helper(layout: InstallLayout) -> VerifiedFinanceHelper:
+    """Capture the fixed helper inside two fresh app signature/identity brackets."""
+    import hashlib
+    from dataclasses import replace
+    from ...core.finance_managed_profile import (
+        MANAGED_HELPER_MAX_BYTES,
+        InstalledBundleSourceV1,
+        managed_ref,
+        managed_wire_payload,
+    )
+    from .contracts import _SAFE_TAG_RE, _VERSION_RE, current_architecture
+
+    try:
+        with _FinanceSourceCapture(layout.root) as capture:
+            root_fd = capture.directories[""][0]
+            selector = os.stat("current", dir_fd=root_fd, follow_symlinks=False)
+            target = os.readlink("current", dir_fd=root_fd)
+            parts = PurePosixPath(target).parts
+            if (
+                not stat.S_ISLNK(selector.st_mode)
+                or selector.st_uid not in {0, os.getuid()}
+                or len(parts) != 2
+                or parts[0] != "versions"
+                or target != "/".join(parts)
+                or not _SAFE_VERSION_ID_RE.fullmatch(parts[1])
+                or parts[1] in {".", ".."}
+            ):
+                raise InstallError("FIN003_INSTALLED_SOURCE_INVALID")
+            version = parts[1]
+            prefix = f"versions/{version}"
+            app_relative = f"{prefix}/{APP_BUNDLE_NAME}"
+            capture._directory(app_relative)
+            capture._directory(f"{app_relative}/Contents/Helpers")
+            capture._directory(f"{app_relative}/Contents/Resources")
+            app = layout.root / app_relative
+
+            def recheck() -> None:
+                capture.recheck()
+                if capture._identity(selector) != capture._identity(
+                    os.stat("current", dir_fd=root_fd, follow_symlinks=False)
+                ) or target != os.readlink("current", dir_fd=root_fd):
+                    raise InstallError("FIN003_SOURCE_CHANGED")
+
+            recheck()
+            plist_path = f"{app_relative}/Contents/Info.plist"
+            boundary_path = (
+                f"{app_relative}/Contents/Resources/distribution-boundary.json"
+            )
+            helper_path = f"{app_relative}/{_FINANCE_HELPER}"
+            for relative, maximum, executable in (
+                (f"{prefix}/bundle-manifest.json", _FINANCE_INVENTORY_MAX_BYTES, False),
+                (plist_path, _FINANCE_METADATA_MAX_BYTES, False),
+                (boundary_path, _FINANCE_METADATA_MAX_BYTES, False),
+                (helper_path, MANAGED_HELPER_MAX_BYTES, True),
+            ):
+                capture.retain(relative, maximum, executable=executable)
+            recheck()
+            first_signing_kind = _finance_signature_kind(app)
+            recheck()
+            inventory_raw = capture.read(
+                f"{prefix}/bundle-manifest.json", _FINANCE_INVENTORY_MAX_BYTES
+            )
+            plist_raw = capture.read(plist_path, _FINANCE_METADATA_MAX_BYTES)
+            boundary_raw = capture.read(boundary_path, _FINANCE_METADATA_MAX_BYTES)
+            raw = capture.read(helper_path, MANAGED_HELPER_MAX_BYTES, executable=True)
+            recheck()
+            if _finance_signature_kind(app) != first_signing_kind:
+                raise InstallError("FIN003_SOURCE_SIGNATURE_INVALID")
+            recheck()
+            plist = plistlib.loads(plist_raw)
+            boundary = _finance_json(boundary_raw)
+            inventory = _finance_json(inventory_raw)
+            architecture = current_architecture()
+            commit = plist.get("UAASourceCommit") if isinstance(plist, dict) else None
+            if (
+                not isinstance(plist, dict)
+                or plist.get("CFBundleIdentifier") != APP_BUNDLE_IDENTIFIER
+                or not isinstance(plist.get("CFBundleShortVersionString"), str)
+                or _VERSION_RE.fullmatch(plist["CFBundleShortVersionString"]) is None
+                or not isinstance(plist.get("UAAReleaseTag"), str)
+                or _SAFE_TAG_RE.fullmatch(plist["UAAReleaseTag"]) is None
+                or plist.get("UAAUpdateChannel") not in {"stable", "dev"}
+                or not isinstance(commit, str)
+                or re.fullmatch("[0-9a-f]{40}", commit) is None
+                or _finance_macho_architecture(raw) != architecture
+                or boundary.get("schema_version")
+                != "uaa.macos.distribution-boundary.v1"
+                or boundary.get("product_line") != PRODUCT_LINE
+                or boundary.get("architecture") != architecture
+                or boundary.get("source_commit_ref") != f"git-commit:{commit}"
+                or inventory.get("schema_version") != BUNDLE_MANIFEST_SCHEMA
+                or inventory.get("product_line") != PRODUCT_LINE
+                or inventory.get("app_bundle") != APP_BUNDLE_NAME
+                or inventory.get("source_commit") != commit
+                or inventory.get("architecture") != architecture
+                or inventory.get("signing_kind") != first_signing_kind
+                or inventory.get("version") != plist.get("CFBundleShortVersionString")
+                or inventory.get("tag") != plist.get("UAAReleaseTag")
+                or inventory.get("channel") != plist.get("UAAUpdateChannel")
+                or boundary.get("tag_ref")
+                != "git-tag:" + str(plist.get("UAAReleaseTag"))
+                or boundary.get("channel") != plist.get("UAAUpdateChannel")
+            ):
+                raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+            entries = inventory.get("files")
+            if (
+                not isinstance(entries, list)
+                or not 1 <= len(entries) <= MAX_ARCHIVE_FILES
+            ):
+                raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+            by_path: dict[str, dict[str, Any]] = {}
+            for entry in entries:
+                if (
+                    not isinstance(entry, dict)
+                    or set(entry) != {"path", "sha256", "size", "mode"}
+                    or not isinstance(entry.get("path"), str)
+                    or entry["path"] in by_path
+                    or _safe_archive_path(entry["path"]).as_posix() != entry["path"]
+                    or not isinstance(entry.get("sha256"), str)
+                    or re.fullmatch("[0-9a-f]{64}", entry["sha256"]) is None
+                    or type(entry.get("size")) is not int
+                    or not 0 <= entry["size"] <= MAX_EXTRACTED_BYTES
+                    or type(entry.get("mode")) is not int
+                    or entry["mode"] not in {0o644, 0o755}
+                ):
+                    raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+                by_path[entry["path"]] = entry
+            for relative, content in (
+                (plist_path, plist_raw),
+                (boundary_path, boundary_raw),
+                (helper_path, raw),
+            ):
+                entry = by_path.get(relative.removeprefix(prefix + "/"))
+                metadata = capture.files[relative][1]
+                if (
+                    entry is None
+                    or entry.get("sha256") != hashlib.sha256(content).hexdigest()
+                    or type(entry.get("size")) is not int
+                    or entry["size"] != len(content)
+                    or type(entry.get("mode")) is not int
+                    or entry["mode"] != stat.S_IMODE(metadata.st_mode)
+                ):
+                    raise InstallError("FIN003_SOURCE_METADATA_INVALID")
+            source = InstalledBundleSourceV1(
+                kind="verified_installed_bundle",
+                source_provenance_ref="pending:source",
+                bundle_ref="macos-bundle-ref:sha256:"
+                + hashlib.sha256(plist_raw).hexdigest(),
+                bundle_inventory_ref="bundle-inventory-ref:sha256:"
+                + hashlib.sha256(inventory_raw).hexdigest(),
+                source_commit_ref=f"git-commit:{commit}",
+                source_version_ref="macos-version-ref:sha256:"
+                + hashlib.sha256(version.encode("ascii")).hexdigest(),
+                verification="fresh-app-signature-and-exact-helper-bytes",
+            )
+            payload = managed_wire_payload(source)
+            del payload["source_provenance_ref"]
+            source = replace(
+                source, source_provenance_ref=managed_ref("source", payload)
+            )
+            return _finance_verified_helper(
+                raw, source, architecture=architecture, signing_kind=first_signing_kind
+            )
+    except (
+        OSError,
+        ValueError,
+        subprocess.SubprocessError,
+        RecursionError,
+        plistlib.InvalidFileException,
+    ):
+        raise InstallError("FIN003_INSTALLED_SOURCE_INVALID") from None

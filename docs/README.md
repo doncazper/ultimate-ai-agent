@@ -4,8 +4,10 @@ The separately admitted [FIN-003 synthetic in-app workflow](product/UAA_FINANCE_
 tracks protected sample-book setup/import/review/save/reopen/undo through the
 shared Core, CLI, API and Control Center. That bounded slice merged in PR #481.
 The [normal startup continuation](product/UAA_FINANCE_FIN003_NORMAL_STARTUP.md)
-addresses explicit backend configuration and stale-runtime reuse; automatic
-provisioning, real-data use and Q26 completion remain unclaimed.
+merged in PR #485. The [managed setup candidate](product/UAA_FINANCE_FIN003_MANAGED_SETUP.md)
+adds separately confirmed helper/profile enrollment through shared Core and CLI
+contracts. Automatic book/key creation, real-data use and Q26 completion remain
+unclaimed.
 
 Tool-aware cognition and normal-chat quality are governed by
 `docs/strategy/UAA_TOOL_AWARE_COGNITION_AND_CHAT_QUALITY_PLAN.md` and its

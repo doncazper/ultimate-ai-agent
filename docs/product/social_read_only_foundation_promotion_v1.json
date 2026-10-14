@@ -3,7 +3,7 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:dcd3a056025cc52ad5fb1e75411f8a27377f9bdc78d46e3e6b212e057522eed9",
+  "acceptance_subject_digest": "sha256:438d01e037ade8d62d24914257708a87613a418bf900043688041373eefe9a81",
   "subject_files": [
     {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:d654c7ad4899ec5aa56a6feef14927bcc7b2ad7db875b21132584390a488e124"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:e0960d8a6eef13575340d115bb665bc302fd69abae785ab530a52ecd01a4748f"},
@@ -23,7 +23,7 @@
     {"path_ref": "repo-path-ref:scripts/dev/uaa_crm.py", "sha256": "sha256:3f7813f1bf01de4c0f288d97eec1e405df93a4bb679d68928f6053f06fddf63c"},
     {"path_ref": "repo-path-ref:scripts/verify_social_read_only_foundation_profile.py", "sha256": "sha256:1a67ad47a8a7b5e3c84c1d0da89b37f7a9f8dedc46491a5b93770c998ee0a624"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/api/control_center.py", "sha256": "sha256:8f130370e9dc9dbf234468af9c54518b42eaf739a2ecb0b9bfd9e703b483b3ab"},
-    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/authority/contracts.py", "sha256": "sha256:568b1db50b0c2556e1684ab5c2e1273ef70487e449e368653cb722163d1cc25f"},
+    {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/authority/contracts.py", "sha256": "sha256:816a17f8d54652401eb5d5242960fb909d0ab6fe453dfff544e3412935ad1d05"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/contracts.py", "sha256": "sha256:f75bc82168a52a4379dd86a31dbff995773bdb993cc52494e29bae82201bdba6"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/communications/local_projection.py", "sha256": "sha256:b8ae7e153d396d8f99943403d6d2220a6c8e13a6a9b1d53716377ae46dd83cb6"},
     {"path_ref": "repo-path-ref:src/ultimate_ai_agent/core/control_center/work_board.py", "sha256": "sha256:297939bc32308ce5b30fa8685d3cab33029a6789470d236e47e996f3d18a8d1f"},
