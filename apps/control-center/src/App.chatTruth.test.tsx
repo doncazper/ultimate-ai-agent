@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ControlCenterData } from "./api/types";
 import { mockControlCenterData } from "./mocks/controlCenterData";
@@ -110,5 +110,25 @@ describe("first-run Chat backend truth boundary", () => {
 
     expect(screen.getByText(errorRef)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Talk to your model" })).not.toBeInTheDocument();
+  });
+
+  it("mounts secondary Chat requests only when their disclosure is opened", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response("{}", { status: 401 }),
+    );
+    const requested = (path: string) => fetchMock.mock.calls.some(([url]) => String(url).endsWith(path));
+
+    render(<App />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(requested("/control-center/chat/workspace")).toBe(false);
+    expect(requested("/control-center/turn-router/preview")).toBe(false);
+
+    fireEvent.click(screen.getByText("Details", { selector: "summary" }));
+    await waitFor(() => expect(requested("/control-center/turn-router/preview")).toBe(true));
+    expect(requested("/control-center/chat/workspace")).toBe(false);
+
+    fireEvent.click(screen.getByText("Content-free draft checkpoints", { selector: "summary" }));
+    await waitFor(() => expect(requested("/control-center/chat/workspace")).toBe(true));
+    expect(requested("/v1/chat/completions")).toBe(false);
   });
 });

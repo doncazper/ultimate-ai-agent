@@ -34,14 +34,16 @@ beforeEach(() => {
   api.requestLocalConversationTurn.mockResolvedValue(reply);
 });
 describe("main local conversation", () => {
-  it("keeps safety details reachable without crowding the initial conversation", () => {
+  it("keeps safety details reachable without crowding the initial conversation", async () => {
     render(<LocalConversationPanel models={ready} binding={binding} onReconnect={vi.fn()}><h2>Diagnostic proof</h2></LocalConversationPanel>);
     expect(screen.getByRole("heading", { name: "Talk to your model" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Diagnostic proof" })).not.toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Diagnostic proof" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Details", { selector: "summary" }));
-    expect(screen.getByRole("heading", { name: "Diagnostic proof" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Diagnostic proof" })).toBeVisible();
     expect(screen.getByText(/lost on reload/)).toBeVisible();
     expect(api.requestLocalConversationTurn).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Details", { selector: "summary" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Diagnostic proof" })).not.toBeInTheDocument());
   });
   it("reconnects only on command and uses the real namespaced model value", () => {
     const reconnect = vi.fn();

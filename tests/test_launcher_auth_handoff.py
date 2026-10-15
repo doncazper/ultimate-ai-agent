@@ -26,6 +26,26 @@ def test_control_center_bearer_uses_fragment_handoff(monkeypatch) -> None:
     assert "uaa-session-bearer=local-control-center-bearer" in session_url
 
 
+def test_ui_hands_off_only_session_bearer_without_printing_it(monkeypatch, capsys) -> None:
+    launcher = _launcher()
+    monkeypatch.setenv("UAA_API_LOCAL_BEARER", "fixture-ui-session")
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_KEY", "fixture-ui-gateway")
+    monkeypatch.setenv("UAA_LAUNCHER_FRONTEND_PORT", "5175")
+    monkeypatch.setattr(launcher, "cleanup_stale_pid", lambda _path: "running")
+    monkeypatch.setattr(launcher, "read_pid_file", lambda _path: 12345)
+    monkeypatch.setattr(launcher, "metadata_matches_service", lambda _service, _pid: True)
+    opened = []
+    monkeypatch.setattr(launcher.webbrowser, "open", opened.append)
+
+    assert launcher.command_ui(ROOT) == 0
+
+    assert opened == ["http://127.0.0.1:5175#uaa-session-bearer=fixture-ui-session"]
+    output = capsys.readouterr().out
+    assert output == "Opened http://127.0.0.1:5175\n"
+    assert "fixture-ui-session" not in output
+    assert "fixture-ui-gateway" not in output
+
+
 def test_control_center_launcher_never_hands_gateway_or_provider_keys_to_browser(monkeypatch) -> None:
     launcher = _launcher()
     monkeypatch.setenv("UAA_API_LOCAL_BEARER", "fixture-control-center-session")

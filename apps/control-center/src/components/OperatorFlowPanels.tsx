@@ -248,6 +248,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const [receiptPending, setReceiptPending] = useState(false);
   const [handoffPending, setHandoffPending] = useState<ChatHandoffTarget>();
   const [receiptError, setReceiptError] = useState<string>();
+  const [workspaceDetailsOpen, setWorkspaceDetailsOpen] = useState(false);
   const chatStep = useOperatorStep(data, "uaa_v1_chat");
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const selectedModelId = models.selectedModelId ?? DEFAULT_MODEL_ID;
@@ -359,9 +360,9 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         summary="Talk to your local model through the authenticated UAA gateway. Conversation text stays transient; tools and external actions remain disabled."
       />
 
-      <details>
+      <details open={workspaceDetailsOpen} onToggle={(event) => setWorkspaceDetailsOpen(event.currentTarget.open)}>
         <summary>Content-free draft checkpoints</summary>
-        <ChatWorkspacePanel />
+        {workspaceDetailsOpen ? <ChatWorkspacePanel /> : null}
       </details>
 
       <TurnRouterDiagnosticsPanel />

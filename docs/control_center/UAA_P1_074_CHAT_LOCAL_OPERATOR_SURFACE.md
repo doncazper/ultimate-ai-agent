@@ -27,6 +27,9 @@ The real model selector, New chat, Reconnect and explicit Send remain wired to
 the existing transient conversation and authenticated loopback gateway.
 Connection & safety exposes backend proof; Details exposes tab lifetime,
 unverified-output warnings and the existing advanced diagnostics/handoffs.
+Secondary diagnostics mount only while Details is open; content-free draft
+checkpoints additionally require their own disclosure to be open. A collapsed
+panel does not fetch its workspace or submit a router preview.
 Neither disclosure changes authority. Missing readiness keeps Send disabled;
 failed turns preserve the draft and do not retry automatically. Narrow screens
 use collapsible navigation. No fake history, cloud, attachment or tool controls

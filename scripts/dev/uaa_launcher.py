@@ -1417,7 +1417,7 @@ def command_ui(root: Path) -> int:
     if pid is None or not metadata_matches_service(frontend, pid):
         print("Control Center endpoint does not match the running launcher process. Run: uaa status")
         return 1
-    webbrowser.open(frontend.url)
+    webbrowser.open(control_center_session_url())
     print(f"Opened {frontend.url}")
     return 0
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   LOCAL_CONVERSATION_CHARACTER_LIMIT,
@@ -49,6 +49,7 @@ export function LocalConversationPanel({
   children?: ReactNode;
 }) {
   const stored = useSyncExternalStore(subscribe, snapshot);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const backendKey = binding ? JSON.stringify([binding.backendInstanceRef, binding.backendRevisionRef]) : "";
   const conversation = stored.backendKey === backendKey ? stored : emptyConversation(backendKey);
   const transcript = useRef<HTMLDivElement>(null);
@@ -178,13 +179,13 @@ export function LocalConversationPanel({
         </div>
         <div className="chat-footer">
           <span>Send approves one local turn <span aria-hidden="true">·</span> No tools or external actions</span>
-          <details className="chat-details">
+          <details className="chat-details" onToggle={(event) => setDetailsOpen(event.currentTarget.open)}>
             <summary>Details <NorthStarIcon name="chevron-down" size="sm" /></summary>
             <div className="chat-details-content">
               <p>This conversation stays in this tab and is lost on reload. Replies are model output, not verified facts. No tools, memory writes, or external actions run.</p>
               <p>Only messages in this chat are sent to your local model. Start a new chat to switch models.</p>
               <p>Send approves this exact turn once. Duplicate attempts are blocked; an interrupted reply is never retried automatically. Only content-free approval and attempt evidence is saved.</p>
-              {children}
+              {detailsOpen ? children : null}
             </div>
           </details>
         </div>
