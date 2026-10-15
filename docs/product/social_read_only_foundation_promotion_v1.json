@@ -3,9 +3,9 @@
   "ledger_ref": "ledger-ref:social-read-only-foundation-promotion:v1",
   "profile_ref": "contract-ref:social-read-only-foundation-profile:v1",
   "candidate_author_ref": "author-ref:social-foundation:q25-candidate",
-  "acceptance_subject_digest": "sha256:2dd730190c3ad8d8617de3863b10273e9e27ce8c5104ca67b60a472dcd2a4b6f",
+  "acceptance_subject_digest": "sha256:66f1ce39403e8e9ff3c9c0b6a4c80b90620a8dd1293069b07e04a4039b832761",
   "subject_files": [
-    {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:e059e7002023f8428c2c18553ffea83b9c4690d88ee306bd2509074bd96ee5aa"},
+    {"path_ref": "repo-path-ref:apps/control-center/src/App.test.tsx", "sha256": "sha256:4c154fd52102050991a4c1f93a561130c4aba071314d101403d9483ccfead8bd"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.summaryEndpoints.test.ts", "sha256": "sha256:b7288c7e1f21b14e04169c0713ae6ded5da375185ff121cae952d27aa1ad0558"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/client.ts", "sha256": "sha256:d3152968b93a3c68aadd81893351d4067e3883da1904d061de69ba2a6f2888c2"},
     {"path_ref": "repo-path-ref:apps/control-center/src/api/types.ts", "sha256": "sha256:257ac0549fd65b797d260d551917c590e746c129c14ef0066c769f7e51e825e3"},
