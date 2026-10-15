@@ -193,6 +193,10 @@ explicit conversation context, with 32,000 characters per draft. These are
 bounded conversation limits, not a claim about model context capacity. The existing
 Python gateway continues to validate model identity, roles, output bounds,
 loopback transport, authentication, and tools/functions/streaming denial.
+After exact approval, this first-party lane permits a reply to repeat prior
+assistant text. User/system prompt echoes remain rejected, including text also
+present in an assistant message. Legacy gateway callers retain their existing
+echo rule; the request schema exposes no response-validation override.
 Local model IDs may use a bounded namespace/model form, including the configured
 Qwen 3.8 27B ID. Absolute paths, traversal, URLs and additional path segments stay
 denied; the requested model must still exactly equal the configured model.

@@ -100,6 +100,50 @@ def test_explicit_send_captures_validates_and_commits_exact_scope_before_transpo
     assert "fixture-session-value" not in stored
 
 
+def test_approved_turn_can_repeat_a_prior_assistant_reply_without_replaying(lane):
+    repo, request, _ = lane
+    prior_reply = "a" * 12
+    request.messages = M164ChatCompletionRequest(
+        model=request.model,
+        messages=[
+            {"role": "user", "content": "u" * 8},
+            {"role": "assistant", "content": prior_reply},
+            {"role": "user", "content": "v" * 8},
+        ],
+    ).messages
+    transport = FakeM164GatewayTransport(content=prior_reply)
+    result = _send(lane, transport=transport)
+    assert result["choices"][0]["message"]["content"] == prior_reply
+    assert result["uaa_safety"]["local_turn_approval"]["exact_approval_validated"] is True
+    assert turns.inspect_local_turn_attempt(_attempt(), repository=repo)["status"] == "completed"
+    with repo._connect() as conn:
+        stored = json.dumps(dict(conn.execute("SELECT * FROM chat_local_turn_attempts").fetchone()))
+    assert prior_reply not in stored
+    with pytest.raises(turns.LocalTurnError, match="ALREADY_ATTEMPTED"):
+        _send(lane, transport=transport)
+    assert len(transport.calls) == 1
+
+
+def test_approved_turn_still_rejects_user_echo_even_when_an_assistant_repeated_it(lane):
+    repo, request, _ = lane
+    prompt_content = "u" * 8
+    request.messages = M164ChatCompletionRequest(
+        model=request.model,
+        messages=[
+            {"role": "user", "content": prompt_content},
+            {"role": "assistant", "content": prompt_content},
+            {"role": "user", "content": "v" * 8},
+        ],
+    ).messages
+    transport = FakeM164GatewayTransport(content=prompt_content)
+    with pytest.raises(turns.LocalTurnError, match="OUTCOME_UNCERTAIN"):
+        _send(lane, transport=transport)
+    assert turns.inspect_local_turn_attempt(_attempt(), repository=repo)["status"] == "outcome_uncertain"
+    with pytest.raises(turns.LocalTurnError, match="ALREADY_ATTEMPTED"):
+        _send(lane, transport=transport)
+    assert len(transport.calls) == 1
+
+
 @pytest.mark.parametrize("confirmed", [False, None, "true", 1])
 def test_core_requires_literal_confirmation_before_any_authority_or_transport(lane, confirmed):
     with pytest.raises(turns.LocalTurnError, match="CONFIRMATION_REQUIRED"):
@@ -150,6 +194,19 @@ def test_api_credential_collision_cannot_select_legacy_lane(lane, monkeypatch):
     headers.pop("X-UAA-Control-Center-Mutation-Binding")
     assert client.post("/v1/chat/completions", headers=headers, json=lane[1].model_dump()).status_code == 409
     assert not lane[2].calls
+
+
+def test_api_cannot_select_internal_reply_validation_mode(lane, monkeypatch):
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway
+
+    monkeypatch.setattr(gateway, "StdlibM164LlamaCppGatewayTransport", lambda: lane[2])
+    headers = _headers(lane)
+    headers["X-UAA-Operator-Confirmed"] = turns.LOCAL_TURN_CONFIRMATION
+    payload = {**lane[1].model_dump(), "allow_repeated_assistant_reply": True}
+    response = TestClient(api_app.app).post("/v1/chat/completions", headers=headers, json=payload)
+    assert response.status_code == 422
+    assert not lane[2].calls
+    assert turns.inspect_local_turn_attempt(_attempt(), repository=lane[0])["status"] == "missing"
 
 
 def test_api_conflicting_attempt_aliases_are_denied_before_transport(lane):

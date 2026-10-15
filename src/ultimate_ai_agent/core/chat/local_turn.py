@@ -225,6 +225,7 @@ def send_local_conversation_turn(
                 raise LocalTurnError("LOCAL_TURN_TARGET_CHANGED", 409)
             response = build_m164_chat_completion_response(
                 local_request, gateway_model=model, api_key=api_key, transport=transport,
+                allow_repeated_assistant_reply=True,
                 turn_harness_binding=build_chat_turn_harness_binding(
                     local_request.messages, model_ref=local_request.model,
                 ),

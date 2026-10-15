@@ -268,6 +268,7 @@ def build_m164_chat_completion_response(
     transport: M164GatewayTransport | None = None,
     api_key: str | None = None,
     turn_harness_binding: TurnHarnessBindingReadModel | None = None,
+    allow_repeated_assistant_reply: bool = False,
 ) -> dict[str, Any]:
     validated_model = M164LocalGatewayModel.model_validate(gateway_model.model_dump())
     validated_request = M164ChatCompletionRequest.model_validate(chat_request.model_dump())
@@ -275,7 +276,10 @@ def build_m164_chat_completion_response(
         raise ValueError("M164_MODEL_NOT_APPROVED")
     active_transport = transport or StdlibM164LlamaCppGatewayTransport()
     response_payload = active_transport.chat_completions(validated_model, validated_request, api_key=api_key)
-    choices = _sanitize_m164_choices(response_payload.get("choices"), validated_request)
+    choices = _sanitize_m164_choices(
+        response_payload.get("choices"), validated_request,
+        allow_repeated_assistant_reply=allow_repeated_assistant_reply,
+    )
     safety = M164GatewayReceipt(
         model=validated_model.model_id,
         message_count=len(validated_request.messages),
@@ -293,13 +297,17 @@ def build_m164_chat_completion_response(
     }
 
 
-def _sanitize_m164_choices(choices: Any, chat_request: M164ChatCompletionRequest) -> list[dict[str, Any]]:
+def _sanitize_m164_choices(
+    choices: Any, chat_request: M164ChatCompletionRequest, *,
+    allow_repeated_assistant_reply: bool = False,
+) -> list[dict[str, Any]]:
     if not isinstance(choices, list) or not choices:
         raise ValueError("M164_GATEWAY_CHOICES_REQUIRED")
     request_contents = {
         message.content.strip()
         for message in chat_request.messages
         if isinstance(message.content, str) and message.content.strip()
+        and not (allow_repeated_assistant_reply is True and message.role == "assistant")
     }
     safe_choices: list[dict[str, Any]] = []
     for fallback_index, choice in enumerate(choices[:4]):

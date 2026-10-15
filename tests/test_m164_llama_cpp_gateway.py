@@ -156,6 +156,47 @@ def test_m164_gateway_rejects_exact_prompt_echo() -> None:
         )
 
 
+@pytest.mark.parametrize("reply_mode", [None, False, True, 1, "true"])
+def test_m164_prior_assistant_reply_requires_explicit_internal_mode(reply_mode) -> None:
+    prior_reply = "a" * 12
+    request = M164ChatCompletionRequest(
+        model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
+        messages=[
+            {"role": "user", "content": "u" * 8},
+            {"role": "assistant", "content": prior_reply},
+            {"role": "user", "content": "v" * 8},
+        ],
+    )
+    arguments = {} if reply_mode is None else {"allow_repeated_assistant_reply": reply_mode}
+    if reply_mode is True:
+        response = build_m164_chat_completion_response(
+            request, gateway_model=M164LocalGatewayModel(),
+            transport=FakeM164GatewayTransport(content=prior_reply), **arguments,
+        )
+        assert response["choices"][0]["message"]["content"] == prior_reply
+    else:
+        with pytest.raises(ValueError, match="M164_GATEWAY_PROMPT_ECHO_DENIED"):
+            build_m164_chat_completion_response(
+                request, gateway_model=M164LocalGatewayModel(),
+                transport=FakeM164GatewayTransport(content=prior_reply), **arguments,
+            )
+
+
+@pytest.mark.parametrize("role", ["system", "user"])
+def test_m164_repeat_mode_never_exempts_user_or_system_echo(role) -> None:
+    content = "u" * 8
+    request = M164ChatCompletionRequest(
+        model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
+        messages=[{"role": role, "content": content}],
+    )
+    with pytest.raises(ValueError, match="M164_GATEWAY_PROMPT_ECHO_DENIED"):
+        build_m164_chat_completion_response(
+            request, gateway_model=M164LocalGatewayModel(),
+            transport=FakeM164GatewayTransport(content=content),
+            allow_repeated_assistant_reply=True,
+        )
+
+
 @pytest.mark.parametrize(
     "payload,reason",
     [
