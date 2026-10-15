@@ -332,8 +332,7 @@ def test_history_capacity_fails_closed_without_retiring_old_replay_keys(lane, mo
 
 
 def test_local_model_transport_never_honors_external_proxy_environment(lane, monkeypatch):
-    from urllib import request as http
-    from ultimate_ai_agent.core.local_model_management.gateway import StdlibM164LlamaCppGatewayTransport
+    from ultimate_ai_agent.core.local_model_management import gateway
 
     destinations = []
 
@@ -345,9 +344,9 @@ def test_local_model_transport_never_honors_external_proxy_environment(lane, mon
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
     monkeypatch.setenv("no_proxy", "")
     monkeypatch.setenv("NO_PROXY", "")
-    monkeypatch.setattr(http.HTTPHandler, "http_open", capture_without_socket)
+    monkeypatch.setattr(gateway.request.HTTPHandler, "http_open", capture_without_socket)
     with pytest.raises(ValueError, match="fixture-stop-before-socket"):
-        StdlibM164LlamaCppGatewayTransport().chat_completions(
+        gateway.StdlibM164LlamaCppGatewayTransport().chat_completions(
             build_m164_gateway_model_from_env(), lane[1], api_key="fixture-backend-value",
         )
     assert destinations == ["127.0.0.1:1234"]
