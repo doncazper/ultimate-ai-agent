@@ -91,6 +91,7 @@ export type CommandPaletteItem = {
 export const navItems: NavItem[] = [
   { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
+  { path: "/chat", label: "Chat", group: "Founder Loop", status: "local gated", releaseStatus: "ship", role: "primary" },
   { path: "/messenger", label: "Messenger", group: "Founder Loop", status: "fixture-only desktop content with backend-owned sync, crypto, messaging, rooms/media, partial intelligence, and partial hardening posture; synthetic controls remain disabled", releaseStatus: "experimental", role: "primary" },
   { path: "/news", label: "News & Signals", group: "Founder Loop", status: "founder-private local News adoption", releaseStatus: "partial", role: "primary" },
   { path: "/finance", label: "Finance", group: "Founder Loop", status: "protected synthetic-only review workflow; real-data use blocked", releaseStatus: "partial", role: "primary" },
@@ -111,7 +112,6 @@ export const navItems: NavItem[] = [
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
   { path: "/studio/skills", label: "Studio", group: "Review", status: "metadata-only Skill Workbench", releaseStatus: "partial", role: "supporting" },
   { path: "/coding", label: "Coding", group: "Review", status: "read-only cockpit", releaseStatus: "partial", role: "supporting" },
-  { path: "/chat", label: "Chat", group: "Review", status: "local gated", releaseStatus: "ship", role: "supporting" },
   { path: "/models", label: "Models", group: "Review", status: "partial", releaseStatus: "partial", role: "supporting" },
   { path: "/approvals", label: "Approvals", group: "Review", status: "summary", releaseStatus: "partial", role: "supporting" },
   { path: "/files", label: "Files", group: "Review", status: "safe refs", releaseStatus: "partial", role: "supporting" },

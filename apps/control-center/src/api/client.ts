@@ -3994,11 +3994,21 @@ const NEWS_HANDOFF_REQUIRED_ROUTES = [
   "/critical/dashboard-read-model",
 ];
 
+const CHAT_READ_ENDPOINTS = new Set<string>([
+  API_ENDPOINTS.controlCenterDashboard, API_ENDPOINTS.approvalSummary,
+  API_ENDPOINTS.runtimeReadinessSummary, API_ENDPOINTS.foundationGateSummary,
+  API_ENDPOINTS.controlCenterSettingsStatus, API_ENDPOINTS.founderTodaySummary,
+  API_ENDPOINTS.founderAgentLoopThread,
+]);
+const CHAT_REQUIRED_ROUTES = ["/chat", "/today", "/settings", "/critical/dashboard-read-model"];
+
 export async function loadControlCenterData(
   expectedBinding: BackendTruthReadBinding | null = null,
-  scope: "full" | "news-handoff" = "full",
+  scope: "full" | "news-handoff" | "chat" = "full",
 ): Promise<ControlCenterData> {
-  if (scope === "news-handoff" && (!API_BASE_POLICY.allowed || !expectedBinding)) {
+  const boundedScope = scope !== "full";
+  const scopedEndpoints = scope === "chat" ? CHAT_READ_ENDPOINTS : NEWS_HANDOFF_READ_ENDPOINTS;
+  if (boundedScope && (!API_BASE_POLICY.allowed || !expectedBinding)) {
     throw new StrictBackendDataError();
   }
   if (!API_BASE_POLICY.allowed) {
@@ -4026,12 +4036,12 @@ export async function loadControlCenterData(
 
   // Compound Founder Loop reads share local storage and CPU. Keep this small
   // scope serial without extending the existing deadline.
-  const loadReadLimiter = createControlCenterReadLimiter(scope === "news-handoff" ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
-  const handoffDeadline = scope === "news-handoff"
+  const loadReadLimiter = createControlCenterReadLimiter(boundedScope ? 1 : CONTROL_CENTER_MAX_CONCURRENT_READS);
+  const handoffDeadline = boundedScope
     ? performance.now() + CONTROL_CENTER_READ_TIMEOUT_MS : null;
   const read = <T>(endpoint: string): Promise<T> =>
-    scope === "news-handoff" && !NEWS_HANDOFF_READ_ENDPOINTS.has(endpoint)
-      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+    boundedScope && !scopedEndpoints.has(endpoint)
+      ? Promise.reject(new Error("READ_OUTSIDE_ROUTE_SCOPE"))
       : endpoint.startsWith("/api/runtime/")
       ? Promise.resolve().then(() =>
           readEnvelope<T>(endpoint, loadReadLimiter, expectedBinding, handoffDeadline),
@@ -4053,8 +4063,8 @@ export async function loadControlCenterData(
     API_ENDPOINTS.crmSummary,
   );
   const communicationsProjectionSettledPromise = Promise.allSettled([
-    scope === "news-handoff"
-      ? Promise.reject(new Error("READ_OUTSIDE_NEWS_HANDOFF_SCOPE"))
+    boundedScope
+      ? Promise.reject(new Error("READ_OUTSIDE_ROUTE_SCOPE"))
       : loadCommunicationsConversationsWithReadContext(
       loadReadLimiter,
       expectedBinding,
@@ -5577,7 +5587,7 @@ export async function loadControlCenterData(
   };
 
   if (fulfilledCount === 0) {
-    if (scope === "news-handoff") throw new StrictBackendDataError();
+    if (boundedScope) throw new StrictBackendDataError();
     return withConnection(
       {
         ...mockControlCenterData,
@@ -5785,16 +5795,19 @@ export async function loadControlCenterData(
     routeStates,
   };
 
-  if (scope === "news-handoff") {
+  if (boundedScope) {
     // Reuse the full loader's validators and exact route-ownership calculation.
     // Unrequested surfaces remain fallback, never promoted by this connection.
-    const unavailableRoutes = NEWS_HANDOFF_REQUIRED_ROUTES.filter((route) => routeStates[route]?.state !== "backend_owned");
+    const requiredRoutes = scope === "chat" ? CHAT_REQUIRED_ROUTES : NEWS_HANDOFF_REQUIRED_ROUTES;
+    const unavailableRoutes = requiredRoutes.filter((route) => routeStates[route]?.state !== "backend_owned");
     if (unavailableRoutes.length > 0) {
-      throw new Error(`NEWS_HANDOFF_ROUTE_UNVERIFIED:${unavailableRoutes.join(",")}`);
+      throw new Error("BOUNDED_ROUTE_UNVERIFIED:" + unavailableRoutes.join(","));
     }
     return withConnection(data, {
       state: "online",
-      safeMessage: "Today and Briefing loaded from their bound local read contracts; other surfaces were not requested.",
+      safeMessage: scope === "chat"
+        ? "Chat loaded from its bound local read contracts; other surfaces were not requested."
+        : "Today and Briefing loaded from their bound local read contracts; other surfaces were not requested.",
       usingMockData: false,
       warnings: [],
     });
@@ -10299,7 +10312,9 @@ function authorityLeaseRevokeIdempotencyRef(
   return `idempotency-ref:control-center-authority-revoke:${safeChatSuffix(request.lease_ref)}:${safeHashSuffix(refMaterial)}`;
 }
 
-export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {
+export async function inspectLocalModelsRoute(
+  binding: BackendTruthReadBinding | null = null,
+): Promise<LocalModelsInspectionStatus> {
   const checkedAt = new Date().toISOString();
   if (!API_BASE_POLICY.allowed) {
     return {
@@ -10316,14 +10331,22 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
     const response = await fetch(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localModels}`,
       {
-        headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+        headers: binding ? withBackendTruthMutationHeaders(
+          withLocalApiAuthHeaders({ Accept: "application/json" }), binding,
+        ) : withLocalApiAuthHeaders({ Accept: "application/json" }),
       },
     );
+    validateBackendResponseBinding(response.headers, binding);
     const data = await readJsonSafely(response);
     if (!response.ok) {
       return localModelsFailureStatus(response.status, data, checkedAt);
     }
     const modelIds = extractModelIds(data);
+    const safety = extractSafetyRecord(data);
+    const conversationContract = binding !== null && safety.milestone === "M164" && safety.loopback_only === true &&
+      ["tools_enabled", "functions_enabled", "streaming_enabled", "openwebui_is_agent_brain"]
+        .every((key) => safety[key] === false)
+      ? "m164" : safety.milestone_ref === "M151" ? "mock_only" : "unavailable";
     return {
       state: modelIds.length > 0 ? "ready" : "degraded",
       routeRef: API_ENDPOINTS.localModels,
@@ -10333,6 +10356,7 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
           ? "Local model list is reachable through the UAA /v1 gateway."
           : "Local model route answered, but no model identifiers were listed.",
       modelIds,
+      conversationContract,
       selectedModelId: modelIds[0],
       statusCode: response.status,
       reasonCodes:
@@ -10353,8 +10377,130 @@ export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionSt
   }
 }
 
+export interface LocalConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface LocalConversationReply {
+  modelId: string;
+  message: LocalConversationMessage;
+  finishReason: "stop" | "length" | "content_filter";
+}
+
+export const LOCAL_CONVERSATION_CHARACTER_LIMIT = 64_000;
+export const LOCAL_CONVERSATION_MESSAGE_LIMIT = 63;
+
+class LocalConversationError extends Error {}
+
+export async function requestLocalConversationTurn(
+  modelId: string,
+  messages: readonly LocalConversationMessage[],
+  binding: BackendTruthReadBinding | null,
+): Promise<LocalConversationReply> {
+  if (!API_BASE_POLICY.allowed || !localApiBearerForRequest() || !binding) {
+    throw new LocalConversationError(
+      "Open Control Center from the authenticated local launcher before sending.",
+    );
+  }
+  if (
+    !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,159}$/.test(modelId) ||
+    messages.length === 0 || messages.length > LOCAL_CONVERSATION_MESSAGE_LIMIT ||
+    messages.some((message) =>
+      !["user", "assistant"].includes(message.role) ||
+      typeof message.content !== "string" || !message.content.trim()
+    ) ||
+    messages.at(-1)?.role !== "user" ||
+    messages.reduce((count, message) => count + message.content.length, 0) >
+      LOCAL_CONVERSATION_CHARACTER_LIMIT
+  ) {
+    throw new LocalConversationError(
+      "This conversation exceeds the local chat limit. Start a new conversation or shorten your message.",
+    );
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 130_000);
+  const idempotencyKey = "idempotency-ref:control-center-chat:" + crypto.randomUUID();
+  const submittedMessages = messages.map(({ role, content }) => ({ role, content }));
+  try {
+    // No automatic retry: a lost reply does not prove the model never ran.
+    const response = await fetch(
+      API_BASE_POLICY.baseUrl + API_ENDPOINTS.localChatCompletions,
+      {
+        method: "POST",
+        signal: controller.signal,
+        headers: withBackendTruthMutationHeaders(withLocalApiAuthHeaders({
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": idempotencyKey,
+          "X-UAA-Operator-Confirmed": "send-one-local-turn.v1",
+        }), binding),
+        body: JSON.stringify({ model: modelId, messages: submittedMessages, max_tokens: 1024, stream: false }),
+      },
+    );
+    if (!response.ok) {
+      throw new LocalConversationError(
+        response.status === 401 || response.status === 403
+          ? "The local gateway needs authentication or must be enabled. Reopen it from the local launcher, then reconnect."
+          : response.status === 429
+            ? "The local gateway is busy. Your message is still here; wait before sending again."
+            : "The local model did not return an accepted reply. Check its server and model, then reconnect. Your message is still here.",
+      );
+    }
+    validateBackendResponseBinding(response.headers, binding);
+    const data: unknown = await readJsonSafely(response);
+    const record = data !== null && typeof data === "object"
+      ? data as Record<string, unknown> : {};
+    const safety = extractSafetyRecord(record);
+    const approval = safety.local_turn_approval !== null && typeof safety.local_turn_approval === "object"
+      ? safety.local_turn_approval as Record<string, unknown> : {};
+    const choice: unknown = Array.isArray(record.choices) ? record.choices[0] : undefined;
+    const selected = choice !== null && typeof choice === "object"
+      ? choice as Record<string, unknown> : {};
+    const message = selected.message !== null && typeof selected.message === "object"
+      ? selected.message as Record<string, unknown> : {};
+    if (
+      record.model !== modelId || safety.model !== modelId ||
+      safety.message_count !== submittedMessages.length || safety.loopback_forward_performed !== true ||
+      approval.contract_ref !== "contract-ref:chat-explicit-local-turn:v1" ||
+      approval.idempotency_key_ref !== idempotencyKey || approval.status !== "completed" ||
+      approval.exact_approval_validated !== true || approval.durable_start_recorded !== true ||
+      approval.raw_content_persisted !== false ||
+      !/^approval-ref:chat-turn:[0-9a-f]{64}$/.test(String(approval.approval_ref)) ||
+      !/^chat-attempt-ref:sha256:[0-9a-f]{64}$/.test(String(approval.attempt_ref)) ||
+      !/^chat-turn-scope-ref:hmac-sha256:[0-9a-f]{64}$/.test(String(approval.scope_ref)) ||
+      !["tools_enabled", "functions_enabled", "streaming_enabled", "raw_prompt_logged",
+        "memory_written", "context_injected", "production_authority_granted"]
+        .every((key) => safety[key] === false) ||
+      safety.backend_fields_allowlisted !== true ||
+      message.role !== "assistant" || typeof message.content !== "string" ||
+      !message.content.trim() || message.content.length > 4096 ||
+      !["stop", "length", "content_filter"].includes(String(selected.finish_reason))
+    ) {
+      throw new LocalConversationError(
+        "The gateway reply did not match the local conversation contract. Your message is still here.",
+      );
+    }
+    return {
+      modelId,
+      message: { role: "assistant", content: message.content },
+      finishReason: selected.finish_reason as LocalConversationReply["finishReason"],
+    };
+  } catch (error) {
+    if (error instanceof LocalConversationError) {
+      throw error;
+    }
+    throw new LocalConversationError(
+      "No reply was received. The model may still have processed the turn. Your message is still here; send again only if you want another attempt.",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function requestRedactedLocalChatProbe(
   modelId = DEFAULT_LOCAL_MODEL_ID,
+  binding: BackendTruthReadBinding | null = null,
 ): Promise<RedactedLocalChatProbeStatus> {
   const startedAt =
     typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -10375,11 +10521,14 @@ export async function requestRedactedLocalChatProbe(
       `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.localChatCompletions}`,
       {
         method: "POST",
-        headers: withLocalApiAuthHeaders({
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-UAA-Idempotency-Key": localChatProbeIdempotencyRef(modelId),
-        }),
+        headers: {
+          ...(binding ? withBackendTruthMutationHeaders({}, binding) : {}),
+          ...withLocalApiAuthHeaders({
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-UAA-Idempotency-Key": localChatProbeIdempotencyRef(modelId),
+          }),
+        },
         body: JSON.stringify({
           model: modelId,
           messages: [{ role: "user", content: "status" }],

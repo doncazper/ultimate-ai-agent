@@ -88,6 +88,58 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     vi.unstubAllGlobals();
   });
 
+  const chatDependencies = [
+    API_ENDPOINTS.controlCenterDashboard, API_ENDPOINTS.approvalSummary,
+    API_ENDPOINTS.runtimeReadinessSummary, API_ENDPOINTS.foundationGateSummary,
+    API_ENDPOINTS.controlCenterSettingsStatus, API_ENDPOINTS.founderTodaySummary,
+    API_ENDPOINTS.founderAgentLoopThread,
+  ];
+  const chatBinding = {
+    snapshotRef: "proof-ref:chat-startup",
+    backendRevisionRef: "commit-ref:git:chat-startup",
+    backendInstanceRef: "backend-instance-ref:chat-startup",
+  };
+  const chatHeaders = {
+    "X-UAA-Backend-Revision-Ref": chatBinding.backendRevisionRef,
+    "X-UAA-Backend-Instance-Ref": chatBinding.backendInstanceRef,
+  };
+
+  it.each([
+    API_ENDPOINTS.controlCenterDashboard, API_ENDPOINTS.approvalSummary,
+    API_ENDPOINTS.runtimeReadinessSummary, API_ENDPOINTS.foundationGateSummary,
+    API_ENDPOINTS.controlCenterSettingsStatus, API_ENDPOINTS.founderTodaySummary,
+    API_ENDPOINTS.founderAgentLoopThread,
+  ])("fails closed without required Chat dependency %s", async (missing) => {
+    const fixtures = baseRouteData();
+    delete fixtures[missing];
+    stubControlCenterFetch(fixtures, chatHeaders);
+    await expect(loadControlCenterData(chatBinding, "chat")).rejects.toThrow();
+  });
+
+  it("loads only the seven Chat dependencies without promoting unread routes", async () => {
+    stubControlCenterFetch(baseRouteData(), chatHeaders);
+    const result = await loadControlCenterData(chatBinding, "chat");
+    expect(vi.mocked(fetch).mock.calls.map(([input]) => endpointPath(input)).sort()).toEqual([...chatDependencies].sort());
+    expect(result.connection.usingMockData).toBe(false);
+    for (const route of ["/chat", "/today", "/settings", "/critical/dashboard-read-model"]) {
+      expect(result.routeStates[route].state).toBe("backend_owned");
+    }
+    for (const route of ["/runtime", "/memory", "/crm", "/studio", "/work-board", "/actions", "/evidence"]) {
+      expect(result.routeStates[route].state).not.toBe("backend_owned");
+    }
+  });
+
+  it("rejects unbound or substituted Chat ownership and unsafe authority payloads", async () => {
+    stubControlCenterFetch(baseRouteData());
+    await expect(loadControlCenterData(null, "chat")).rejects.toThrow();
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(loadControlCenterData(chatBinding, "chat")).rejects.toThrow();
+    const fixtures = baseRouteData();
+    fixtures[API_ENDPOINTS.controlCenterSettingsStatus] = {};
+    stubControlCenterFetch(fixtures, chatHeaders);
+    await expect(loadControlCenterData(chatBinding, "chat")).rejects.toThrow();
+  });
+
   it("loads only the exact Today and Briefing dependencies without promoting unread routes", async () => {
     stubControlCenterFetch(baseRouteData(), {
       "X-UAA-Backend-Revision-Ref": "commit-ref:git:news-handoff",

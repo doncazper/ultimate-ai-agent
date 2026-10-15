@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Mapping
 from typing import Any, Protocol
@@ -147,7 +148,11 @@ class StdlibM164LlamaCppGatewayTransport:
     ) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
-        self._opener = opener or request.build_opener(_M164NoRedirectHandler)
+        # This transport is loopback-only. Ambient OS/environment proxy settings
+        # must not forward a local prompt or backend credential to another host.
+        self._opener = opener or request.build_opener(
+            request.ProxyHandler({}), _M164NoRedirectHandler,
+        )
 
     def chat_completions(
         self,
@@ -263,6 +268,7 @@ def build_m164_chat_completion_response(
     transport: M164GatewayTransport | None = None,
     api_key: str | None = None,
     turn_harness_binding: TurnHarnessBindingReadModel | None = None,
+    allow_repeated_assistant_reply: bool = False,
 ) -> dict[str, Any]:
     validated_model = M164LocalGatewayModel.model_validate(gateway_model.model_dump())
     validated_request = M164ChatCompletionRequest.model_validate(chat_request.model_dump())
@@ -270,7 +276,10 @@ def build_m164_chat_completion_response(
         raise ValueError("M164_MODEL_NOT_APPROVED")
     active_transport = transport or StdlibM164LlamaCppGatewayTransport()
     response_payload = active_transport.chat_completions(validated_model, validated_request, api_key=api_key)
-    choices = _sanitize_m164_choices(response_payload.get("choices"), validated_request)
+    choices = _sanitize_m164_choices(
+        response_payload.get("choices"), validated_request,
+        allow_repeated_assistant_reply=allow_repeated_assistant_reply,
+    )
     safety = M164GatewayReceipt(
         model=validated_model.model_id,
         message_count=len(validated_request.messages),
@@ -288,13 +297,17 @@ def build_m164_chat_completion_response(
     }
 
 
-def _sanitize_m164_choices(choices: Any, chat_request: M164ChatCompletionRequest) -> list[dict[str, Any]]:
+def _sanitize_m164_choices(
+    choices: Any, chat_request: M164ChatCompletionRequest, *,
+    allow_repeated_assistant_reply: bool = False,
+) -> list[dict[str, Any]]:
     if not isinstance(choices, list) or not choices:
         raise ValueError("M164_GATEWAY_CHOICES_REQUIRED")
     request_contents = {
         message.content.strip()
         for message in chat_request.messages
         if isinstance(message.content, str) and message.content.strip()
+        and not (allow_repeated_assistant_reply is True and message.role == "assistant")
     }
     safe_choices: list[dict[str, Any]] = []
     for fallback_index, choice in enumerate(choices[:4]):
@@ -374,7 +387,16 @@ def _validate_loopback_base_url(base_url: str) -> str:
 
 def _validate_model_id(model_id: str) -> None:
     _validate_safe_text(model_id, "model_id", max_length=120)
-    if "/" in model_id or "\\" in model_id or ".." in model_id:
+    # Local OpenAI-compatible servers use namespace/model identifiers. This is
+    # JSON data only, never a path or URL; approval still requires exact equality.
+    if re.match(r"^[A-Za-z]:", model_id) or ".." in model_id or re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)?",
+        model_id,
+    ) is None:
+        raise ValueError("M164_MODEL_ID_UNSAFE")
+    # Preserve the legacy rejection of arbitrary slash-containing identifiers.
+    # Namespace syntax is admitted only for the exact operator-configured model.
+    if "/" in model_id and model_id != os.environ.get(UAA_LLAMA_CPP_MODEL_ID_ENV, "").strip():
         raise ValueError("M164_MODEL_ID_UNSAFE")
 
 

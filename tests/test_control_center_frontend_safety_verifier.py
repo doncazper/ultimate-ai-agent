@@ -34,6 +34,87 @@ def test_control_center_frontend_verifier_passes_current_repo() -> None:
     assert verifier.verify(ROOT) == []
 
 
+@pytest.mark.parametrize(
+    ("original", "replacement"),
+    [
+        ("!localApiBearerForRequest()", "false"),
+        ("|| !binding", "|| false"),
+        ("}), binding)", "}), null)"),
+        ("headers: withBackendTruthMutationHeaders", "headers: unrelatedHeaders"),
+        ("API_ENDPOINTS.localChatCompletions", "API_ENDPOINTS.runtimeAuthorityLeases"),
+        ("stream: false", "stream: true"),
+        ("max_tokens: 1024", "max_tokens: 4096"),
+        ("safety.model !== modelId", "false"),
+        ("safety.message_count !== messages.length", "false"),
+        ("safety.loopback_forward_performed !== true", "false"),
+        ("safety.backend_fields_allowlisted !== true", "false"),
+        ("safety[key] === false", "true"),
+    ],
+)
+def test_local_conversation_guard_cannot_borrow_other_helper_guards(
+    original: str, replacement: str,
+) -> None:
+    verifier = load_verifier()
+    client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
+    start = client.index("export async function requestLocalConversationTurn(")
+    end = client.index("export async function requestRedactedLocalChatProbe(", start)
+    helper = client[start:end]
+    # Preserve the established mutation case identity while targeting the
+    # immutable submitted snapshot now consumed by the response validator.
+    original = original.replace(
+        "safety.message_count !== messages.length",
+        "safety.message_count !== submittedMessages.length",
+    )
+    assert original in helper
+    changed = client[:start] + helper.replace(original, replacement, 1) + client[end:]
+    # Identical safe fragments outside the helper cannot satisfy its boundary.
+    changed += "\n" + helper.replace("requestLocalConversationTurn", "unrelatedHelper", 1)
+    assert verifier._local_conversation_boundary_failures(changed)
+
+
+def test_local_conversation_guard_rejects_duplicate_helpers_and_extra_fetches() -> None:
+    verifier = load_verifier()
+    client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
+    assert verifier._local_conversation_boundary_failures(client) == []
+    duplicate = client + "\nfunction requestLocalConversationTurn() {}"
+    assert verifier._local_conversation_boundary_failures(duplicate)
+    changed = client.replace(
+        "// No automatic retry: a lost reply does not prove the model never ran.",
+        'fetch(API_ENDPOINTS.localChatCompletions, { method: "POST" });',
+    )
+    assert changed != client
+    assert verifier._local_conversation_boundary_failures(changed)
+
+
+@pytest.mark.parametrize(
+    ("original", "replacement"),
+    [
+        ('"X-UAA-Operator-Confirmed": "send-one-local-turn.v1"', '"X-UAA-Operator-Confirmed": "true"'),
+        ("messages.map(({ role, content }) => ({ role, content }))", "messages"),
+        ("messages: submittedMessages", "messages"),
+        ("validateBackendResponseBinding(response.headers, binding)", "unrelatedValidation(response.headers, binding)"),
+        ('approval.contract_ref !== "contract-ref:chat-explicit-local-turn:v1"', "false"),
+        ("approval.idempotency_key_ref !== idempotencyKey", "false"),
+        ('approval.status !== "completed"', "false"),
+        ("approval.exact_approval_validated !== true", "false"),
+        ("approval.durable_start_recorded !== true", "false"),
+        ("approval.raw_content_persisted !== false", "false"),
+    ],
+)
+def test_local_conversation_guard_requires_exact_turn_approval(
+    original: str, replacement: str,
+) -> None:
+    verifier = load_verifier()
+    client = (ROOT / "apps/control-center/src/api/client.ts").read_text(encoding="utf-8")
+    start = client.index("export async function requestLocalConversationTurn(")
+    end = client.index("export async function requestRedactedLocalChatProbe(", start)
+    helper = client[start:end]
+    assert original in helper
+    changed = client[:start] + helper.replace(original, replacement, 1) + client[end:]
+    changed += "\n" + helper.replace("requestLocalConversationTurn", "unrelatedHelper", 1)
+    assert verifier._local_conversation_boundary_failures(changed)
+
+
 def test_control_center_frontend_verifier_tracks_m20_device_drift_strings() -> None:
     verifier = load_verifier()
 

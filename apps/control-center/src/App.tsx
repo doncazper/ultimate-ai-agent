@@ -1104,7 +1104,8 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
   const state = useControlCenterData(
     truthAdmitted,
     truthReadBinding,
-    criticalPath && isNewsHandoffRoute(activePath) ? "news-handoff" : "full",
+    criticalPath && canonicalizeControlCenterPath(activePath) === "/chat" ? "chat"
+      : criticalPath && isNewsHandoffRoute(activePath) ? "news-handoff" : "full",
   );
   const loadedActionInbox =
     state.status === "ready" ? state.data.founderActionsInbox : null;
@@ -1215,7 +1216,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           message={state.error ?? "Unable to load Control Center data."}
           surfaceLabel={activeSurfaceLabel}
         />
-        {isNewsHandoffRoute(activePath) ? (
+        {isNewsHandoffRoute(activePath) || canonicalizeControlCenterPath(activePath) === "/chat" ? (
           <button onClick={state.retry} type="button">Retry local read</button>
         ) : null}
       </AppShell>
@@ -1245,6 +1246,13 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
     ? { ...state.data, founderActionsInbox: actionInboxOverride }
     : state.data;
   const routeState = state.data.routeStates[activePath];
+  const routeDetails = <>
+    <ConnectionStatus connection={visibleData.connection} routeState={routeState} />
+    {visibleData.runtimeInterfaceMode.interface_enabled ? (
+      <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
+    ) : null}
+    <RouteStatePanel state={getRouteStateDescriptor(activePath, visibleData.connection, routeState)} />
+  </>;
 
   return (
     <AppShell
@@ -1261,6 +1269,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
         visibleData.settingsStatus.authority_lease_state.kill_switch_visible
       }
       routeState={routeState}
+      routeDetails={activePath === "/chat" ? routeDetails : undefined}
     >
       {revisionRefreshFailed ? (
         <SafeAlert
@@ -1269,20 +1278,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           tone="warning"
         />
       ) : null}
-      <ConnectionStatus
-        connection={visibleData.connection}
-        routeState={routeState}
-      />
-      {visibleData.runtimeInterfaceMode.interface_enabled ? (
-        <RuntimeInterfaceModeBanner mode={visibleData.runtimeInterfaceMode} />
-      ) : null}
-      <RouteStatePanel
-        state={getRouteStateDescriptor(
-          activePath,
-          visibleData.connection,
-          routeState,
-        )}
-      />
+      {activePath !== "/chat" ? routeDetails : null}
       <BackendTruthMutationBindingProvider binding={truthReadBinding}>
         {renderRoute(activePath, visibleData)}
       </BackendTruthMutationBindingProvider>
@@ -1309,6 +1305,9 @@ const NORTH_STAR_SHELL_ROUTE_KEYS = [
 
 const FIRST_RUN_CRITICAL_PATHS = new Set([
   "/actions",
+  // Explicit local conversation does not require a completed founder loop.
+  // Backend revision, evidence validity and route ownership still apply.
+  "/chat",
   // Reviewed local News intake does not claim complete founder-loop evidence.
   "/news",
   "/finance",
@@ -1459,7 +1458,7 @@ function CriticalBackendTruthUnavailable({
           {pending
             ? "Checking the current Python-owned revision and evidence envelope before rendering this critical surface."
             : firstRun
-              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Start Here, Setup, Action Inbox, reviewed local News intake, and the exact Settings authority lane remain available; other critical product claims stay hidden."
+              ? "The backend revision is valid, but this fresh local state has not produced complete durable loop evidence yet. Local Chat, Start Here, Setup, Action Inbox, reviewed local News intake, and the exact Settings authority lane remain available; other critical product claims stay hidden."
             : "The backend truth envelope or a required route read model is unavailable, malformed, stale, out of order, or contract-incompatible. Mock and placeholder success content remains hidden."}
         </p>
         <dl>

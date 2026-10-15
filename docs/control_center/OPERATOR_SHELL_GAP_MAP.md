@@ -27,9 +27,11 @@ Q33's current bounded Chat adoption slice adds a readable clean-start
 conversation workspace backed by `GET /control-center/chat/workspace`,
 idempotent content-free draft checkpoints, and archive/recover lifecycle
 receipts. Draft bodies stay in the current browser tab and never reach the
-server. Ordinary send/model calls, tools, memory writes, connector work, and
-production authority remain blocked; the remaining Q33 cross-surface scope is
-still active.
+server through that metadata contract. The separately accepted
+[main-conversation lane](UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md) adds one
+explicit, exact-approved local M164 turn per Send with durable duplicate
+suppression. Tools, cloud calls, memory writes, connector work, and production
+authority remain blocked; the remaining Q33 cross-surface scope is still active.
 
 The bounded Q33 Setup readability slice gives `/setup` its own
 backend-truth-bound summary read, so the first-run surface no longer waits for
@@ -99,7 +101,7 @@ readiness, or production authority.
 
 UI surface direction: Control Center / Founder Command Center is the
 first-party product cockpit for Today, Inbox, Plans, Actions, Memory, Evidence,
-Settings, Models, and future first-party Chat. OpenWebUI remains a supported
+Settings, Models, and the implemented tab-local M164 Chat client. OpenWebUI remains a supported
 local/dev conversational shell and compatibility surface for governed `/v1`
 smoke, llama.cpp shell testing, and developer chat. OpenWebUI must not become
 the source of product state or the destination for wiring every UAA workflow.
@@ -396,19 +398,21 @@ implemented and verifier-backed.
 
 ## Visible Action Map
 
-Current visible actions expose UAA-P1-011 as inspection evidence only:
+Current visible actions distinguish inspection evidence from exact approved
+local mutations; none grants broad authority:
 
 | Visible action | Current behavior | Route authority and side-effect class | Product-readiness result |
 |---|---|---|---|
 | Navigate/select a card or row | Local UI state only. | No backend route. | Safe for review, not completion evidence. |
+| Send a local Chat turn | Calls `POST /v1/chat/completions` once with the configured M164 loopback model and this tab's transient conversation. | `local_dev_workspace_only`; authenticated session, fresh backend binding, explicit Send confirmation, exact LocalApprovalAuthority scope, and a durable one-use attempt precede transport under `contract-ref:chat-explicit-local-turn:v1`. | Founder-private local conversation only. No automatic retry, tools, cloud calls, external actions, transcript persistence, or production authority. Content-free evidence is inspectable with `scripts/inspect_chat_local_turn.py`. |
 | Preview action | Calls `POST /control-center/actions/preview`. | `validation_only`; execution remains denied. | Safe preview only. |
 | Record Action Inbox decision | Calls `POST /control-center/actions/{action_id}/approve`, `/edit`, `/reject`, or `/defer`, then reads `GET /control-center/actions/{action_id}/receipt`. | `local_dev_workspace_only`; decision state is backend-owned and mutating routes require local auth, exact approval where required, idempotency, and receipts. | Records decision receipt refs only; action execution remains denied. |
 | Commit approved local task | Calls `POST /control-center/actions/{action_id}/local-task/commit` only for eligible approved `local_task_create` items with backend-owned envelope, receipt visibility, active `workspace/write` AuthorityLease scope, and enabled safe-disable posture. Mock/degraded data cannot expose this control. | `local_dev_workspace_only`; active `workspace/write` AuthorityLease, exact LocalApprovalAuthority scope, idempotency, durable local receipt, Evidence Timeline event, CLI parity, and safe-disable posture are required. | Creates local task state only; connector writes, shell/subprocess execution, model/provider authority, memory write, context injection, external side effects, rollback execution, broad action execution, and production authority remain denied. |
 | Inspect File Review approval posture | Displays backend/mock safe-ref posture only. The web panel exposes no Approve/Deny control and never synthesizes persisted state. | No backend route call in CCC Web; the separately governed exact capture route remains unwired here. | Inspection only; not approval or completion evidence. |
 | Load dashboard/runtime/routes summaries | Reads local summary endpoints. | `none` or `validation_only`. | Safe status evidence only. |
 
-No visible CCC action currently sends a chat message, launches llama.cpp,
-selects a GGUF model, creates a broader product Plans loop, executes a
+No visible CCC action currently launches llama.cpp, selects a GGUF model,
+creates a broader product Plans loop, executes a
 generic or external Action Inbox decision, executes a
 capability outside the existing approval-bound backend path, applies a file
 patch, rolls back a mutation, changes Settings, or grants broad authority.

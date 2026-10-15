@@ -52,6 +52,16 @@ idempotency ref before handler execution. It does not prove duplicate replay
 semantics for every route owner; those remain route-owner responsibilities and
 later enforcement-test coverage.
 
+The founder-private first-party branch of `POST /v1/chat/completions` now owns
+content-free durable attempts under `contract-ref:chat-explicit-local-turn:v1`.
+It requires exact Send confirmation and LocalApprovalAuthority validation,
+commits a start before transport, and denies every reused attempt identity,
+including unknown outcomes. It does not cache or replay response bodies.
+The route remains `mutating_requires_authority`. Its route-wide manifest stays
+`header_shape_gate_only` because the distinct legacy gateway-key and M151
+branches retain their earlier compatibility contracts; this new guarantee must
+not be generalized to every request on that route.
+
 The current manifest therefore reports the global middleware as
 `header_shape_gate_only` and requires `route_owned_durable_replay` before any
 route can claim durable replay. Only exact routes with a named durable receipt

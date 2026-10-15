@@ -346,6 +346,8 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
         env[UAA_BUILD_COMMIT_ENV] = verified_source_commit(root)
+        if llama_cpp_gateway_requested():
+            env["UAA_CONTROL_CENTER_CORS_ORIGIN"] = frontend_url()
         env.update(_load_finance_startup_module().finance_startup_environment(os.environ))
         if os.environ.get(UAA_API_LOCAL_BEARER_ENV):
             env[UAA_API_LOCAL_BEARER_ENV] = os.environ[UAA_API_LOCAL_BEARER_ENV]
@@ -364,7 +366,11 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
                 env[key] = os.environ[key]
                 sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
-        env["VITE_UAA_API_BASE_URL"] = ""
+        # The existing local-only API-base policy supports the explicitly
+        # enabled gateway directly; the shared Vite/test config is unchanged.
+        env["VITE_UAA_API_BASE_URL"] = (
+            backend_url() if llama_cpp_gateway_requested() else ""
+        )
         env["VITE_UAA_PROXY_TARGET"] = backend_url()
     if service_name == "openwebui" and llama_cpp_gateway_requested():
         openwebui_env, secret_env_keys = openwebui_container_env()
@@ -665,7 +671,11 @@ def metadata_matches_service(service: Service, pid: int) -> bool:
     if data is None:
         return False
     if service.name == "frontend":
-        return data.get("backend_proxy_url") == backend_url()
+        expected_api_base = backend_url() if llama_cpp_gateway_requested() else ""
+        return (
+            data.get("backend_proxy_url") == backend_url()
+            and data.get("local_api_base_url", "") == expected_api_base
+        )
     if service.name == "openwebui":
         return data.get("command") == service.command
     return True
@@ -1020,6 +1030,17 @@ def start_service(
             if service.name == "backend":
                 finance_startup = _load_finance_startup_module()
                 metadata = _read_service_metadata(service) or {}
+                expected_chat_origin = (
+                    frontend_url() if llama_cpp_gateway_requested() else None
+                )
+                if (
+                    "local_chat_frontend_origin" not in metadata
+                    or metadata["local_chat_frontend_origin"] != expected_chat_origin
+                ):
+                    return (
+                        "backend: blocked; local Chat configuration changed or is "
+                        "unverified; run uaa stop, then uaa start; ownership metadata retained"
+                    )
                 if not finance_startup.finance_startup_configuration_matches(
                     metadata.get(finance_startup.FINANCE_STARTUP_METADATA_KEY), os.environ
                 ):
@@ -1160,8 +1181,12 @@ def start_service(
     }
     if service.name == "frontend":
         metadata["backend_proxy_url"] = backend_url()
+        metadata["local_api_base_url"] = environment["VITE_UAA_API_BASE_URL"]
     if service.name == "backend":
         finance_startup = _load_finance_startup_module()
+        metadata["local_chat_frontend_origin"] = (
+            frontend_url() if llama_cpp_gateway_requested() else None
+        )
         metadata[finance_startup.FINANCE_STARTUP_METADATA_KEY] = (
             finance_startup.finance_startup_configuration_ref(environment)
         )
@@ -1335,6 +1360,24 @@ def command_doctor(root: Path) -> int:
 def command_start(root: Path) -> int:
     for host in [backend_host(), frontend_host()]:
         validate_local_host(host)
+    # Resolve a busy frontend port before the backend fixes its exact CORS
+    # origin. Never stop or adopt the process occupying the requested port.
+    auto_selected_frontend = False
+    if llama_cpp_gateway_requested() and _env_flag_enabled(
+        UAA_LAUNCHER_AUTO_SWITCH_ON_PORT_BLOCK_ENV, default=False
+    ):
+        frontend = service_config(root, "frontend")
+        if (
+            cleanup_stale_pid(frontend.pid_file) != "running"
+            and is_port_open(frontend_host(), frontend_port())
+        ):
+            alternate = _next_open_port(frontend_host(), frontend_port())
+            if alternate is None:
+                print("frontend: blocked; no safe alternate local port was found")
+                return 1
+            os.environ[UAA_LAUNCHER_FRONTEND_PORT_ENV] = str(alternate)
+            auto_selected_frontend = True
+    bound_frontend_origin = frontend_url()
     record_launcher_event(
         root,
         "launcher.start_requested",
@@ -1344,9 +1387,19 @@ def command_start(root: Path) -> int:
     )
     blocked = False
     for name in ["backend", "frontend"]:
-        result = start_service(root, service_config(root, name))
+        result = (
+            start_service(root, service_config(root, name), auto_selected_endpoint=True)
+            if name == "frontend" and auto_selected_frontend
+            else start_service(root, service_config(root, name))
+        )
         print(result)
         service_blocked = ": blocked;" in result
+        if (
+            name == "frontend" and llama_cpp_gateway_requested()
+            and frontend_url() != bound_frontend_origin
+        ):
+            print("frontend: blocked; selected origin changed during startup; run uaa stop, then uaa start")
+            service_blocked = True
         blocked = blocked or service_blocked
         if name == "backend" and service_blocked:
             break
@@ -1364,7 +1417,7 @@ def command_ui(root: Path) -> int:
     if pid is None or not metadata_matches_service(frontend, pid):
         print("Control Center endpoint does not match the running launcher process. Run: uaa status")
         return 1
-    webbrowser.open(frontend.url)
+    webbrowser.open(control_center_session_url())
     print(f"Opened {frontend.url}")
     return 0
 
