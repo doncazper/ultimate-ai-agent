@@ -38,8 +38,9 @@ alone or repeated attempt cannot invoke the first-party model lane. See the
 [Chat contract](../control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md)
 for content-free receipt inspection and interrupted-turn handling.
 When M164 is explicitly enabled, the launcher uses the existing loopback-only
-API-base setting for all Control Center requests and binds CORS to the exact
-validated frontend origin, including an automatically selected local port.
+API-base setting for all Control Center requests and adds the exact validated
+frontend origin to the existing exact-loopback CORS allowlist, including an
+automatically selected local port. No wildcard or non-loopback origin is added.
 The shared Vite/test configuration is unchanged. Without M164, the existing
 relative API and development proxy behavior is retained.
 Changing gateway enablement in either direction requires stopping and

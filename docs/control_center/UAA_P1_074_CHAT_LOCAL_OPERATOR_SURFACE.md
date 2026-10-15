@@ -193,8 +193,9 @@ denied; the requested model must still exactly equal the configured model.
 No provider transport, cloud call, tool runtime, persistent transcript, or
 automatic memory write is added.
 
-The development server proxies the existing /v1 routes to the same exact
-loopback backend as Control Center routes. Local setup must configure the
+With M164 enabled, the launcher sets the existing loopback-only API base for
+both /v1 and Control Center requests; the Vite proxy table is unchanged.
+Local setup must configure the
 existing gateway, approved model ID, loopback base URL and matching local
 bearer. A model list is readiness evidence only; actual send/response proof is
 required before calling a particular installation usable.
