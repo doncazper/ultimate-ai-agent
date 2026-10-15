@@ -131,4 +131,20 @@ describe("first-run Chat backend truth boundary", () => {
     await waitFor(() => expect(requested("/control-center/chat/workspace")).toBe(true));
     expect(requested("/v1/chat/completions")).toBe(false);
   });
+
+  it("lets the operator retry a failed Chat read without sending a model turn", () => {
+    const retry = vi.fn();
+    mocked.controlCenterState = {
+      status: "error", data: null, error: "Local read unavailable.", retry,
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    render(<App />);
+
+    expect(screen.queryByRole("heading", { name: "Talk to your model" })).not.toBeInTheDocument();
+    expect(retry).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry local read" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

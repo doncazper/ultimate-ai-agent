@@ -6361,6 +6361,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const handoffPanel = await screen.findByLabelText(
       "Backend-owned Chat to Loop handoff read model",
@@ -6406,6 +6407,7 @@ describe("Web Control Center shell", () => {
     const fetchMock = stubTurnRouterPreviewBackend();
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6489,6 +6491,7 @@ describe("Web Control Center shell", () => {
     stubTurnRouterPreviewBackend();
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6554,6 +6557,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6618,6 +6622,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6666,6 +6671,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6721,6 +6727,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6769,6 +6776,7 @@ describe("Web Control Center shell", () => {
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
@@ -6788,6 +6796,7 @@ describe("Web Control Center shell", () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/chat");
     render(<App />);
+    await openChatDiagnostics();
 
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,

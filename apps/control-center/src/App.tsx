@@ -1216,7 +1216,7 @@ function ControlCenterRoute({ activePath }: { activePath: string }) {
           message={state.error ?? "Unable to load Control Center data."}
           surfaceLabel={activeSurfaceLabel}
         />
-        {isNewsHandoffRoute(activePath) ? (
+        {isNewsHandoffRoute(activePath) || canonicalizeControlCenterPath(activePath) === "/chat" ? (
           <button onClick={state.retry} type="button">Retry local read</button>
         ) : null}
       </AppShell>

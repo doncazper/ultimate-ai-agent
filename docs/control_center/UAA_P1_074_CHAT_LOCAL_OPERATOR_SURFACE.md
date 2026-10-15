@@ -29,7 +29,10 @@ Connection & safety exposes backend proof; Details exposes tab lifetime,
 unverified-output warnings and the existing advanced diagnostics/handoffs.
 Secondary diagnostics mount only while Details is open; content-free draft
 checkpoints additionally require their own disclosure to be open. A collapsed
-panel does not fetch its workspace or submit a router preview.
+panel does not initiate a workspace fetch or router preview. Closing a panel
+does not abort a request that it already started. If initial Chat reads fail,
+**Retry local read** lets the operator reload those reads without sending a
+model turn.
 Neither disclosure changes authority. Missing readiness keeps Send disabled;
 failed turns preserve the draft and do not retry automatically. Narrow screens
 use collapsible navigation. No fake history, cloud, attachment or tool controls
