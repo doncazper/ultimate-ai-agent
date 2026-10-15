@@ -7,6 +7,15 @@ Accepted repository checkpoint: checkpoint-m169
 Accepted local model lane checkpoints: checkpoint-m166, checkpoint-m167
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`
 
+The founder-private main Chat follow-up uses
+`contract-ref:chat-explicit-local-turn:v1`: one explicit Send, one exact local
+approval, and a durable one-use attempt through the configured M164 loopback
+gateway. No tools, cloud, external actions, background calls, or raw transcript
+persistence are granted. Exact-head review, live configured-model interaction,
+hosted checks and post-merge proof remain qualification gates, not claims
+conferred by this document. See
+`docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`.
+
 Planned comparison-order gate: the exact remaining program order is pinned in
 `docs/roadmap/UAA_REMAINING_QUEUE_MANIFEST.json`. Tool-Aware Cognition And Chat
 Quality TAW-00 through TAW-08 is planned at the boundary immediately before the

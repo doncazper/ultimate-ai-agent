@@ -177,12 +177,13 @@ export function LocalConversationPanel({
           </div>
         </div>
         <div className="chat-footer">
-          <span>This tab only <span aria-hidden="true">·</span> No tools or external actions</span>
+          <span>Send approves one local turn <span aria-hidden="true">·</span> No tools or external actions</span>
           <details className="chat-details">
             <summary>Details <NorthStarIcon name="chevron-down" size="sm" /></summary>
             <div className="chat-details-content">
               <p>This conversation stays in this tab and is lost on reload. Replies are model output, not verified facts. No tools, memory writes, or external actions run.</p>
               <p>Only messages in this chat are sent to your local model. Start a new chat to switch models.</p>
+              <p>Send approves this exact turn once. Duplicate attempts are blocked; an interrupted reply is never retried automatically. Only content-free approval and attempt evidence is saved.</p>
               {children}
             </div>
           </details>

@@ -10420,6 +10420,8 @@ export async function requestLocalConversationTurn(
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 130_000);
+  const idempotencyKey = "idempotency-ref:control-center-chat:" + crypto.randomUUID();
+  const submittedMessages = messages.map(({ role, content }) => ({ role, content }));
   try {
     // No automatic retry: a lost reply does not prove the model never ran.
     const response = await fetch(
@@ -10430,10 +10432,10 @@ export async function requestLocalConversationTurn(
         headers: withBackendTruthMutationHeaders(withLocalApiAuthHeaders({
           Accept: "application/json",
           "Content-Type": "application/json",
-          "X-UAA-Idempotency-Key":
-            "idempotency-ref:control-center-chat:" + crypto.randomUUID(),
+          "X-UAA-Idempotency-Key": idempotencyKey,
+          "X-UAA-Operator-Confirmed": "send-one-local-turn.v1",
         }), binding),
-        body: JSON.stringify({ model: modelId, messages, max_tokens: 1024, stream: false }),
+        body: JSON.stringify({ model: modelId, messages: submittedMessages, max_tokens: 1024, stream: false }),
       },
     );
     if (!response.ok) {
@@ -10445,10 +10447,13 @@ export async function requestLocalConversationTurn(
             : "The local model did not return an accepted reply. Check its server and model, then reconnect. Your message is still here.",
       );
     }
+    validateBackendResponseBinding(response.headers, binding);
     const data: unknown = await readJsonSafely(response);
     const record = data !== null && typeof data === "object"
       ? data as Record<string, unknown> : {};
     const safety = extractSafetyRecord(record);
+    const approval = safety.local_turn_approval !== null && typeof safety.local_turn_approval === "object"
+      ? safety.local_turn_approval as Record<string, unknown> : {};
     const choice: unknown = Array.isArray(record.choices) ? record.choices[0] : undefined;
     const selected = choice !== null && typeof choice === "object"
       ? choice as Record<string, unknown> : {};
@@ -10456,7 +10461,14 @@ export async function requestLocalConversationTurn(
       ? selected.message as Record<string, unknown> : {};
     if (
       record.model !== modelId || safety.model !== modelId ||
-      safety.message_count !== messages.length || safety.loopback_forward_performed !== true ||
+      safety.message_count !== submittedMessages.length || safety.loopback_forward_performed !== true ||
+      approval.contract_ref !== "contract-ref:chat-explicit-local-turn:v1" ||
+      approval.idempotency_key_ref !== idempotencyKey || approval.status !== "completed" ||
+      approval.exact_approval_validated !== true || approval.durable_start_recorded !== true ||
+      approval.raw_content_persisted !== false ||
+      !/^approval-ref:chat-turn:[0-9a-f]{64}$/.test(String(approval.approval_ref)) ||
+      !/^chat-attempt-ref:sha256:[0-9a-f]{64}$/.test(String(approval.attempt_ref)) ||
+      !/^chat-turn-scope-ref:hmac-sha256:[0-9a-f]{64}$/.test(String(approval.scope_ref)) ||
       !["tools_enabled", "functions_enabled", "streaming_enabled", "raw_prompt_logged",
         "memory_written", "context_injected", "production_authority_granted"]
         .every((key) => safety[key] === false) ||

@@ -148,7 +148,11 @@ class StdlibM164LlamaCppGatewayTransport:
     ) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
-        self._opener = opener or request.build_opener(_M164NoRedirectHandler)
+        # This transport is loopback-only. Ambient OS/environment proxy settings
+        # must not forward a local prompt or backend credential to another host.
+        self._opener = opener or request.build_opener(
+            request.ProxyHandler({}), _M164NoRedirectHandler,
+        )
 
     def chat_completions(
         self,

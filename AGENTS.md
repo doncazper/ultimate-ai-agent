@@ -51,7 +51,14 @@ Planning references:
 - `/api/manifest` is the typed metadata endpoint for the current API boundary.
 - OpenAPI is the public route contract. Keep operation IDs stable and unique
   unless a scoped API change explicitly updates tests and docs.
-- Do not add runtime model calls.
+- Do not add runtime model calls except the accepted
+  `contract-ref:chat-explicit-local-turn:v1` founder-private lane: one explicit
+  Chat Send may capture and validate one exact LocalApprovalAuthority grant
+  for the configured loopback model and transient request, with a durable
+  one-use attempt recorded before transport. No automatic retries, background
+  calls, tools, cloud calls, external actions, or raw transcript persistence.
+  See `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md` for
+  bounds, CLI inspection, safe disable, rollback, and verification gates.
 - Do not add web fetching.
 - Do not add provider SDK calls, browser automation, unrestricted
   shell/subprocess execution, plugin runtime import, connector writes, mobile

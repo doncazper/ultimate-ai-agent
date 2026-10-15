@@ -282,6 +282,8 @@ def test_m164_control_center_session_uses_distinct_credentials_without_exposing_
     import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
 
     headers = _control_center_session_headers(monkeypatch, tmp_path)
+    headers["X-UAA-Operator-Confirmed"] = "send-one-local-turn.v1"
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "turn-state"))
     transport = FakeM164GatewayTransport(content="y" * 12)
     monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
     models = client.get("/v1/models", headers=headers)

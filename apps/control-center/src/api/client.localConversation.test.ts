@@ -24,13 +24,29 @@ function completion() {
       tools_enabled: false, functions_enabled: false, streaming_enabled: false,
       raw_prompt_logged: false, memory_written: false, context_injected: false,
       production_authority_granted: false, backend_fields_allowlisted: true,
+      local_turn_approval: {
+        contract_ref: "contract-ref:chat-explicit-local-turn:v1",
+        idempotency_key_ref: "",
+        status: "completed", exact_approval_validated: true, durable_start_recorded: true,
+        raw_content_persisted: false,
+        approval_ref: "approval-ref:chat-turn:" + "a".repeat(64),
+        attempt_ref: "chat-attempt-ref:sha256:" + "b".repeat(64),
+        scope_ref: "chat-turn-scope-ref:hmac-sha256:" + "a".repeat(64),
+      },
     },
   };
 }
 function stubReply(value = completion(), status = 200) {
-  const fetcher = vi.fn(async () => new Response(JSON.stringify(value), {
-    status, headers: { "Content-Type": "application/json" },
-  }));
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    value.uaa_safety.local_turn_approval.idempotency_key_ref ||= new Headers(init?.headers).get("X-UAA-Idempotency-Key") || "";
+    return new Response(JSON.stringify(value), {
+      status, headers: {
+        "Content-Type": "application/json",
+        "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+        "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+      },
+    });
+  });
   vi.stubGlobal("fetch", fetcher);
   return fetcher;
 }
@@ -49,6 +65,7 @@ describe("explicit local conversation turn", () => {
     const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/v1/chat/completions");
     expect(new Headers(init.headers).has("Authorization")).toBe(true);
+    expect(new Headers(init.headers).get("X-UAA-Operator-Confirmed")).toBe("send-one-local-turn.v1");
     expect(new Headers(init.headers).get("X-UAA-Expected-Backend-Instance-Ref")).toBe(binding.backendInstanceRef);
     expect(new Headers(init.headers).get("X-UAA-Expected-Backend-Truth-Ref")).toBe(binding.snapshotRef);
     expect(new Headers(init.headers).get("X-UAA-Idempotency-Key"))
@@ -152,5 +169,24 @@ describe("explicit local conversation turn", () => {
     vi.stubGlobal("fetch", fetcher);
     await expect(requestLocalConversationTurn(modelId, messages)).rejects.toThrow(/may still have processed/);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it.each(["approval", "attempt", "status", "scope", "content", "idempotency"])("rejects %s evidence that does not prove this exact turn", async (invalid) => {
+    const reply = completion();
+    const proof = reply.uaa_safety.local_turn_approval;
+    if (invalid === "approval") proof.exact_approval_validated = false;
+    if (invalid === "attempt") proof.durable_start_recorded = false;
+    if (invalid === "status") proof.status = "started";
+    if (invalid === "scope") proof.scope_ref = "ref:unbound";
+    if (invalid === "content") proof.raw_content_persisted = true;
+    if (invalid === "idempotency") proof.idempotency_key_ref = "idempotency-ref:another-send";
+    const fetcher = stubReply(reply);
+    await expect(requestLocalConversationTurn(modelId, messages)).rejects.toThrow(/contract/);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("rejects an unbound turn response before reading its body", async () => {
+    const readBody = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, headers: new Headers(), json: readBody })));
+    await expect(requestLocalConversationTurn(modelId, messages)).rejects.toThrow(/may still have processed/);
+    expect(readBody).not.toHaveBeenCalled();
   });
 });

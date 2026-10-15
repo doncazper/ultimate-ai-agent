@@ -3,13 +3,17 @@
 Status: implemented as a contract, test, verifier, Today-spine, Evidence
 Timeline, and first-party Control Center Chat metadata slice.
 
-This milestone makes Chat a governed local operator surface. Control Center can
+The original metadata milestone makes Chat a governed local operator surface. Control Center can
 send a redacted readiness turn through the local chat gateway, show
 model/runtime/auth/tool-denial truth, produce safe evidence refs, and hand off
 proposal refs to Plans or Actions. It does not add provider SDK calls, web
 fetching, tool execution, memory writes, hidden context injection, connector
 writes, shell/subprocess execution, action execution, approval grant capture,
 public beta, public distribution, or production authority.
+
+The separately accepted founder-private main-conversation follow-up below
+introduces only `contract-ref:chat-explicit-local-turn:v1`. Its one-turn local
+approval does not promote the original metadata contract's broad authority flags.
 
 ## Contract Ref
 
@@ -136,6 +140,32 @@ server; they are not placed in browser URLs or JavaScript. Existing gateway-key
 clients retain their original exact M164 contract. No new routes, operation IDs,
 general provider authority, or auth-bypass capability are added.
 
+The founder accepted the narrow runtime-rule exception on 2026-10-14. Send or
+Enter adds `X-UAA-Operator-Confirmed: send-one-local-turn.v1` to this one request.
+A session alone, a generic true value, the model-list read, and the diagnostic
+probe cannot create local-turn permission. API session identity is evaluated
+before the legacy gateway-key path, including equal-key misconfiguration.
+Python snapshots the normalized request and configured loopback target, binds
+them with backend revision/instance and attempt identity using a process-keyed
+commitment, then captures and validates an exact two-minute
+LocalApprovalAuthority grant. The commitment key is never persisted.
+
+The `chat_local_turn_attempts` owner in Founder Loop storage commits a unique
+content-free start before transport. The replay key is a stable digest of the
+idempotency value, independent of the process-keyed content commitment. Every
+duplicate attempt returns 409 without another call, including concurrent,
+completed, interrupted, and restarted attempts. No raw reply cache exists.
+A failed completion write leaves the start uncertain and non-replayable.
+History is bounded at 10,000 attempts and fails closed at capacity; this lane
+does not delete evidence or rotate away replay protection automatically.
+
+Server-side ordinary-turn limits are 63 alternating user/assistant messages,
+64,000 total characters, a final user message, and at most 1,024 output units.
+System instructions, tools, functions, streaming, empty content, and invalid
+generation limits are rejected. A fresh explicit Send is needed for each
+follow-up. Model-list inspection remains read-only and does not invoke a model.
+The old diagnostic probe has no Send confirmation and cannot use this new lane.
+
 Send is available only for the M164 model-list safety contract. The M151
 deterministic test shell remains visibly mock-only, even when its model list is
 reachable. Backend revision/process replacement clears the transient transcript
@@ -154,7 +184,7 @@ Connection failures keep the draft available and never retry automatically.
 A lost reply is an uncertain outcome, not proof that the model did not run.
 The client permits at most 63 submitted messages and 64,000 characters of
 explicit conversation context, with 32,000 characters per draft. These are
-client buffer limits, not a claim about model context capacity. The existing
+bounded conversation limits, not a claim about model context capacity. The existing
 Python gateway continues to validate model identity, roles, output bounds,
 loopback transport, authentication, and tools/functions/streaming denial.
 Local model IDs may use a bounded namespace/model form, including the configured
@@ -174,13 +204,33 @@ CLI/API inspection remains available through the existing
 /v1/chat/completions request contract. Operators must not put bearer values
 or conversation bodies in durable logs or evidence.
 
+The response includes content-free `uaa_safety.local_turn_approval` evidence.
+Inspect its `attempt_ref` through the same Python-owned read contract without
+issuing or replaying any turn:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m ultimate_ai_agent.core.chat.local_turn --attempt-ref CHAT_ATTEMPT_REF
+```
+
+The read command reports missing, started, completed, or outcome_uncertain and
+never prints stored grants, conversation content, credentials, or local paths.
+The route-wide manifest remains conservative (`header_shape_gate_only`), because
+the legacy M151/gateway-key branches do not acquire this first-party-only store.
+
 Safe disable and rollback use the existing local gateway enablement setting
 or stopping only the operator-owned development services. This follow-up does
 not modify existing user services or content-free workspace records.
+Disable the gateway and restart only the owned backend; an in-flight model turn
+cannot be undone, and a missing reply must not be retried automatically. Normal
+code revert leaves the content-free attempt records in place. Neither disable
+nor rollback deletes replay evidence or grants broader authority.
 
 Required proof:
 
 - `tests/test_uaa_p1_074_chat_local_operator_surface.py`
+- `tests/test_chat_exact_local_turn.py`
+- `tests/test_m164_llama_cpp_gateway.py`
+- `apps/control-center/src/api/client.localConversation.test.ts`
 - `tests/test_founder_loop_storage.py`
 - `tests/test_control_center_founder_loop_api.py`
 - `apps/control-center/src/App.test.tsx`

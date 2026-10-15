@@ -27,9 +27,11 @@ Q33's current bounded Chat adoption slice adds a readable clean-start
 conversation workspace backed by `GET /control-center/chat/workspace`,
 idempotent content-free draft checkpoints, and archive/recover lifecycle
 receipts. Draft bodies stay in the current browser tab and never reach the
-server. Ordinary send/model calls, tools, memory writes, connector work, and
-production authority remain blocked; the remaining Q33 cross-surface scope is
-still active.
+server through that metadata contract. The separately accepted
+[main-conversation lane](UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md) adds one
+explicit, exact-approved local M164 turn per Send with durable duplicate
+suppression. Tools, cloud calls, memory writes, connector work, and production
+authority remain blocked; the remaining Q33 cross-surface scope is still active.
 
 The bounded Q33 Setup readability slice gives `/setup` its own
 backend-truth-bound summary read, so the first-run surface no longer waits for

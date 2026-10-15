@@ -32,6 +32,11 @@ configured model-gateway key may differ from the Control Center bearer: it
 stays on the backend, as does the backend/provider key. No additional secret is
 handed to the browser. Missing, expired, or rebound provenance fails closed;
 the M151 deterministic test shell is mock-only, not conversational readiness.
+Send separately confirms one exact local turn. The Python core validates its
+LocalApprovalAuthority grant and records a one-use durable attempt; a session
+alone or repeated attempt cannot invoke the first-party model lane. See the
+[Chat contract](../control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md)
+for content-free receipt inspection and interrupted-turn handling.
 When M164 is explicitly enabled, the launcher uses the existing loopback-only
 API-base setting for all Control Center requests and binds CORS to the exact
 validated frontend origin, including an automatically selected local port.

@@ -130,6 +130,18 @@ process inspection, debugging access, or a compromised local account. Native
 IPC or a short-lived origin-bound session bootstrapped from an appropriate
 Keychain boundary remains required before supported binary distribution.
 
+The founder-private `contract-ref:chat-explicit-local-turn:v1` lane accepts one
+explicit Send, not standing session permission. Its versioned operator
+confirmation is bound by Python to the complete transient request, configured
+loopback model/endpoint, backend revision/instance, and attempt identity. The
+core captures and validates a short-lived LocalApprovalAuthority grant and
+commits a content-free durable start before transport. Reused attempt identities
+are rejected across concurrent requests and restarts, including lost replies;
+raw conversation content is never stored for replay. The browser cannot prove
+a physical human gesture against a compromised authenticated session; the same
+local-account/browser threat boundary above still applies. No tools, cloud,
+background calls, external actions, or production permission are granted.
+
 ## macOS Installer And Update Threat Model
 
 The first-class macOS updater is an exact product-distribution transport, not
