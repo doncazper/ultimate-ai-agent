@@ -99,6 +99,12 @@ a candidate-verification receipt produced only after the locked path census,
 content digests, source projection, transitive dependency closure, and resolved
 evaluator environment all verify. `pyproject.toml` and `uv.lock` are mandatory
 lock entries, and their verified digests form the evaluator-environment digest.
+The verifier retains separate source-owned names for the standard-library TOML
+parser and its Python 3.10 backport, then exposes the selected module through
+the same `tomllib` alias. Backport loading remains lazy and limited to the
+existing `ModuleNotFoundError` fallback. Parser/error identity and public-alias
+substitution remain unchanged; this provenance clarification grants no parser,
+environment, acceptance, or runtime authority and does not waive corpus checks.
 The repository verifier derives the complete source universe with
 `git ls-tree` at the locked revision before resolving imports, and reads every
 locked artifact directly with `git show <revision>:<path>`. Candidate source

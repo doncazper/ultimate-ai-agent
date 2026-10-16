@@ -2164,6 +2164,41 @@ def _python_propagated_namespace_aliases(
     return namespaces
 
 
+def _python_dynamic_import_origin_present(
+    tree: ast.Module, imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    """Conservatively screen for the existing analyzer's primitive origins.
+
+    Fragments and foreign owners require the full lexical view. An absent
+    origin proves only an empty dynamic-import list, never runtime purity.
+    """
+
+    if (
+        not isinstance(tree, ast.Module)
+        or getattr(tree, "_uaa_capability_source", tree) is not tree
+        or getattr(tree, "_uaa_capability_fragment", False)
+    ):
+        return True
+    if any(
+        candidate in {"builtins.__import__", "importlib.import_module"}
+        for candidates in imported_modules.values() for candidate in candidates
+    ):
+        return True
+    return any(
+        (isinstance(node, ast.Name) and node.id == "__import__")
+        or (isinstance(node, ast.Attribute) and node.attr in {"__import__", "import_module"})
+        or (isinstance(node, ast.Import) and any(
+            alias.name in {"builtins.__import__", "importlib.import_module"}
+            for alias in node.names
+        ))
+        or (isinstance(node, ast.ImportFrom) and (
+            node.module in {"builtins.__import__", "importlib.import_module"}
+            or any(alias.name in {"__import__", "import_module"} for alias in node.names)
+        ))
+        for node in ast.walk(tree)
+    )
+
+
 def _dynamic_python_import_modules(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
@@ -2173,6 +2208,12 @@ def _dynamic_python_import_modules(
 ) -> tuple[str, ...]:
     """Resolve bounded dynamic imports or reject their dependency posture."""
 
+    if not _python_dynamic_import_origin_present(tree, imported_modules):
+        # Full projection also attaches source ownership used by later sliced
+        # analyses. Preserve that pass even when no lexical clone is needed.
+        if () not in getattr(tree, "_uaa_capability_projections", {}):
+            _python_capability_source_index(tree)
+        return ()
     projected, imported_modules = _python_capability_projection(tree, imported_modules)
     tree = projected[id(tree)]
     assignments: list[tuple[str, ast.AST]] = []
@@ -2794,26 +2835,10 @@ def _python_conservative_getattr_aliases(
     return {alias: "getattr" for alias in sorted(known)}
 
 
-def _python_capability_projection(
-    tree: ast.AST,
-    imported_modules: dict[str, tuple[str, ...]],
-) -> tuple[dict[int, ast.AST], dict[str, tuple[str, ...]]]:
-    """Build a source-owned lexical view without changing identity ASTs.
-
-    The capability graphs operate on names, so their vertices must identify a
-    binding owner rather than a spelling. A source index is shared by all
-    executed-owner slices; projected nodes never enter serialized identities.
-    """
-
-    source = getattr(tree, "_uaa_capability_source", tree)
-    complete_source = isinstance(source, ast.Module) and not getattr(source, "_uaa_capability_fragment", False)
-    cache_key = () if complete_source else tuple(sorted(imported_modules.items()))
-    cache = getattr(source, "_uaa_capability_projections", None)
-    if cache is None:
-        cache = {}
-        setattr(source, "_uaa_capability_projections", cache)
-    if cache_key in cache:
-        return cache[cache_key]
+def _python_capability_source_index(
+    source: ast.AST,
+) -> tuple[dict[int, dict[str, Any]], dict[int, int], dict[int, ast.AST]]:
+    """Index lexical owners without constructing or caching a projected AST."""
 
     scopes: dict[int, dict[str, Any]] = {}
     owners: dict[int, int] = {}
@@ -2891,6 +2916,32 @@ def _python_capability_projection(
                 scopes[target_owner]["bindings"].setdefault(name, []).append(node)
             continue
         pending.extend((part, owner) for part in ast.iter_child_nodes(node))
+
+    return scopes, owners, original
+
+
+def _python_capability_projection(
+    tree: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> tuple[dict[int, ast.AST], dict[str, tuple[str, ...]]]:
+    """Build a source-owned lexical view without changing identity ASTs.
+
+    The capability graphs operate on names, so their vertices must identify a
+    binding owner rather than a spelling. A source index is shared by all
+    executed-owner slices; projected nodes never enter serialized identities.
+    """
+
+    source = getattr(tree, "_uaa_capability_source", tree)
+    complete_source = isinstance(source, ast.Module) and not getattr(source, "_uaa_capability_fragment", False)
+    cache_key = () if complete_source else tuple(sorted(imported_modules.items()))
+    cache = getattr(source, "_uaa_capability_projections", None)
+    if cache is None:
+        cache = {}
+        setattr(source, "_uaa_capability_projections", cache)
+    if cache_key in cache:
+        return cache[cache_key]
+    scopes, owners, original = _python_capability_source_index(source)
+    root = id(source)
 
     import_alias_names: list[tuple[ast.alias, str]] = []
     for node in original.values():
@@ -4785,6 +4836,35 @@ def _python_module_dependency_identity(
     )
 
 
+def _python_module_dependency_syntax_fact(
+    tree: ast.Module,
+    relative_package: str,
+    kind: str,
+    build: Callable[[], tuple[Any, ...]],
+) -> tuple[Any, ...]:
+    """Reuse syntax-only tuples on an exact revision-owned module parse.
+
+    Callers use the immutable parse from _python_parsed_module, whose key binds
+    the module and complete source digest. Fragments or a foreign source owner
+    must not reuse these facts. No resolver, closure, abort verdict, or caller
+    callback is retained; each consumer still performs those operations.
+    """
+
+    if (
+        getattr(tree, "_uaa_capability_source", tree) is not tree
+        or getattr(tree, "_uaa_capability_fragment", False)
+    ):
+        return build()
+    cache = getattr(tree, "_uaa_module_dependency_syntax_facts", None)
+    if cache is None:
+        cache = {}
+        setattr(tree, "_uaa_module_dependency_syntax_facts", cache)
+    key = (relative_package, kind)
+    if key not in cache:
+        cache[key] = build()
+    return cache[key]
+
+
 def _python_module_dependency_identity_impl(
     module: str,
     source: str,
@@ -4838,9 +4918,15 @@ def _python_module_dependency_identity_impl(
         relative_package = current_module
         if not source_path.endswith("/__init__.py") and "." in current_module:
             relative_package = current_module.rsplit(".", 1)[0]
-        imported_modules = _python_import_modules(
-            tree,
-            relative_package=relative_package,
+        imported_modules = dict(
+            _python_module_dependency_syntax_fact(
+                tree, relative_package, "imports",
+                lambda: tuple(
+                    _python_import_modules(
+                        tree, relative_package=relative_package
+                    ).items()
+                ),
+            )
         )
         runtime_abort_posture = runtime_abort_posture or any(
             _pytest_collection_abort_callable_name(
@@ -4863,18 +4949,23 @@ def _python_module_dependency_identity_impl(
                 runtime_abort_posture
                 or _python_known_runtime_abort_reference(tree, imported_modules)
             )
-        lazy_export_modules = _python_lazy_export_modules(
-            tree,
-            relative_package=relative_package,
+        lazy_export_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "lazy",
+            lambda: _python_lazy_export_modules(
+                tree, relative_package=relative_package
+            ),
         )
-        grouped_lazy_export_modules = _python_grouped_lazy_export_modules(tree)
-        dynamic_import_modules = _dynamic_python_import_modules(
-            tree,
-            imported_modules,
-            relative_package=relative_package,
-            lazy_export_modules=(
-                *lazy_export_modules,
-                *grouped_lazy_export_modules,
+        grouped_lazy_export_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "grouped",
+            lambda: _python_grouped_lazy_export_modules(tree),
+        )
+        dynamic_import_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "dynamic",
+            lambda: _dynamic_python_import_modules(
+                tree, imported_modules, relative_package=relative_package,
+                lazy_export_modules=(
+                    *lazy_export_modules, *grouped_lazy_export_modules,
+                ),
             ),
         )
         resolved_dependencies: list[tuple[str, str]] = []
@@ -4895,9 +4986,11 @@ def _python_module_dependency_identity_impl(
         dependency_candidates.extend(
             (candidate,)
             for candidate in (
-                *_python_star_import_modules(
-                    tree,
-                    relative_package=relative_package,
+                *_python_module_dependency_syntax_fact(
+                    tree, relative_package, "star",
+                    lambda: _python_star_import_modules(
+                        tree, relative_package=relative_package
+                    ),
                 ),
                 *lazy_export_modules,
                 *dynamic_import_modules,
