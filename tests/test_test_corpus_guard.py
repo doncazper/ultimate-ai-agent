@@ -13795,3 +13795,119 @@ def test_python_inventory_ignores_discarded_functional_fixture_wrapper() -> None
     )[0].ref
 
     assert active == plain
+
+
+@pytest.mark.parametrize("statement_count", (1, 64, 256))
+def test_fixture_alias_resolution_work_tracks_mutation_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+    statement_count: int,
+) -> None:
+    import ast
+
+    original = guard._module_name_aliases
+    positions: list[tuple[int, int]] = []
+
+    def counted(tree: ast.Module, *, before: tuple[int, int]) -> dict[str, str]:
+        positions.append(before)
+        return original(tree, before=before)
+
+    monkeypatch.setattr(guard, "_module_name_aliases", counted)
+    source = (
+        "import pytest as p\nfrom pytest import fixture as fx\n"
+        "alias = p\nfactory = alias.fixture\n"
+        + "".join(
+            f"value_{index} = ({index}, 'stable')\n" for index in range(statement_count)
+        )
+        + "setattr(other, 'unrelated', 1)\n"
+        "other.fixture = factory\n"
+        "@factory(autouse=True)\ndef environment(): yield\n"
+    )
+    tree = ast.parse(source)
+    candidate = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Attribute)
+    )
+
+    assert guard._fixture_aliases(tree) == {
+        "p.fixture",
+        "alias.fixture",
+        "fx",
+        "factory",
+    }
+    assert positions == [(candidate.lineno, candidate.col_offset)]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "alias.fixture = replacement",
+        "alias.fixture: object = replacement",
+        "alias.fixture += replacement",
+        "del alias.fixture",
+        "for alias.fixture in values: pass",
+        "with manager as alias.fixture: pass",
+        "setattr(alias, 'fixture', replacement)",
+        "delattr(alias, 'fixture')",
+        "object.__setattr__(alias, 'fixture', replacement)",
+        "object.__delattr__(alias, 'fixture')",
+        "setattr(alias, attribute_name, replacement)",
+        "delattr(alias, attribute_name)",
+    ),
+)
+def test_fixture_alias_candidate_filter_preserves_mutation_rejection(
+    mutation: str,
+) -> None:
+    import ast
+
+    tree = ast.parse("import pytest as p\n(alias,) = (p,)\n" + mutation + "\n")
+
+    with pytest.raises(
+        guard.TestCorpusGuardError, match="dynamic pytest fixture alias"
+    ):
+        guard._fixture_aliases(tree)
+
+
+@pytest.mark.parametrize(
+    "rebind",
+    (
+        "p = replacement",
+        "fx: object = replacement",
+        "del fx",
+        "for p in values: pass",
+        "with manager as fx: pass",
+        "def p(): pass",
+        "class fx: pass",
+        "import replacement as p",
+        "from replacement import value as fx",
+        "try: pass\nexcept Exception as p: pass",
+    ),
+)
+def test_fixture_alias_candidate_filter_preserves_protected_names(rebind: str) -> None:
+    import ast
+
+    tree = ast.parse(
+        "import pytest as p\nfrom pytest import fixture as fx\n" + rebind + "\n"
+    )
+
+    with pytest.raises(
+        guard.TestCorpusGuardError, match="dynamic pytest fixture alias"
+    ):
+        guard._fixture_aliases(tree)
+
+
+def test_fixture_alias_candidate_resolution_preserves_position_and_source() -> None:
+    import ast
+
+    source = (
+        "import pytest as p\n(alias,) = (other,)\n"
+        "alias.fixture = replacement\n(alias,) = (p,)\n"
+    )
+    # A later alias cannot retroactively make an earlier target a pytest mutation.
+    assert guard._fixture_aliases(ast.parse(source)) == {"p.fixture"}
+    changed = source.replace("(alias,) = (other,)", "(alias,) = (p,)", 1)
+    with pytest.raises(
+        guard.TestCorpusGuardError, match="dynamic pytest fixture alias"
+    ):
+        guard._fixture_aliases(ast.parse(changed))
+    assert guard._fixture_aliases(ast.parse(source)) == {"p.fixture"}
