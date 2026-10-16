@@ -2164,6 +2164,40 @@ def _python_propagated_namespace_aliases(
     return namespaces
 
 
+def _python_dynamic_import_origin_present(
+    tree: ast.Module, imported_modules: dict[str, tuple[str, ...]],
+) -> bool:
+    """Conservatively screen for the existing analyzer's primitive origins.
+
+    Fragments and foreign owners require the full lexical view. An absent
+    origin proves only an empty dynamic-import list, never runtime purity.
+    """
+
+    if (
+        not isinstance(tree, ast.Module)
+        or getattr(tree, "_uaa_capability_source", tree) is not tree
+        or getattr(tree, "_uaa_capability_fragment", False)
+    ):
+        return True
+    if any(
+        candidate in {"builtins.__import__", "importlib.import_module"}
+        for candidates in imported_modules.values() for candidate in candidates
+    ):
+        return True
+    return any(
+        (isinstance(node, ast.Name) and node.id == "__import__")
+        or (isinstance(node, ast.Attribute) and node.attr in {"__import__", "import_module"})
+        or (isinstance(node, ast.Import) and any(
+            alias.name in {"builtins.__import__", "importlib.import_module"}
+            for alias in node.names
+        ))
+        or (isinstance(node, ast.ImportFrom) and any(
+            alias.name in {"__import__", "import_module"} for alias in node.names
+        ))
+        for node in ast.walk(tree)
+    )
+
+
 def _dynamic_python_import_modules(
     tree: ast.Module,
     imported_modules: dict[str, tuple[str, ...]],
@@ -2173,6 +2207,12 @@ def _dynamic_python_import_modules(
 ) -> tuple[str, ...]:
     """Resolve bounded dynamic imports or reject their dependency posture."""
 
+    if not _python_dynamic_import_origin_present(tree, imported_modules):
+        # Full projection also attaches source ownership used by later sliced
+        # analyses. Preserve that pass even when no lexical clone is needed.
+        if () not in getattr(tree, "_uaa_capability_projections", {}):
+            _python_capability_source_index(tree)
+        return ()
     projected, imported_modules = _python_capability_projection(tree, imported_modules)
     tree = projected[id(tree)]
     assignments: list[tuple[str, ast.AST]] = []
@@ -2794,26 +2834,10 @@ def _python_conservative_getattr_aliases(
     return {alias: "getattr" for alias in sorted(known)}
 
 
-def _python_capability_projection(
-    tree: ast.AST,
-    imported_modules: dict[str, tuple[str, ...]],
-) -> tuple[dict[int, ast.AST], dict[str, tuple[str, ...]]]:
-    """Build a source-owned lexical view without changing identity ASTs.
-
-    The capability graphs operate on names, so their vertices must identify a
-    binding owner rather than a spelling. A source index is shared by all
-    executed-owner slices; projected nodes never enter serialized identities.
-    """
-
-    source = getattr(tree, "_uaa_capability_source", tree)
-    complete_source = isinstance(source, ast.Module) and not getattr(source, "_uaa_capability_fragment", False)
-    cache_key = () if complete_source else tuple(sorted(imported_modules.items()))
-    cache = getattr(source, "_uaa_capability_projections", None)
-    if cache is None:
-        cache = {}
-        setattr(source, "_uaa_capability_projections", cache)
-    if cache_key in cache:
-        return cache[cache_key]
+def _python_capability_source_index(
+    source: ast.AST,
+) -> tuple[dict[int, dict[str, Any]], dict[int, int], dict[int, ast.AST]]:
+    """Index lexical owners without constructing or caching a projected AST."""
 
     scopes: dict[int, dict[str, Any]] = {}
     owners: dict[int, int] = {}
@@ -2891,6 +2915,32 @@ def _python_capability_projection(
                 scopes[target_owner]["bindings"].setdefault(name, []).append(node)
             continue
         pending.extend((part, owner) for part in ast.iter_child_nodes(node))
+
+    return scopes, owners, original
+
+
+def _python_capability_projection(
+    tree: ast.AST,
+    imported_modules: dict[str, tuple[str, ...]],
+) -> tuple[dict[int, ast.AST], dict[str, tuple[str, ...]]]:
+    """Build a source-owned lexical view without changing identity ASTs.
+
+    The capability graphs operate on names, so their vertices must identify a
+    binding owner rather than a spelling. A source index is shared by all
+    executed-owner slices; projected nodes never enter serialized identities.
+    """
+
+    source = getattr(tree, "_uaa_capability_source", tree)
+    complete_source = isinstance(source, ast.Module) and not getattr(source, "_uaa_capability_fragment", False)
+    cache_key = () if complete_source else tuple(sorted(imported_modules.items()))
+    cache = getattr(source, "_uaa_capability_projections", None)
+    if cache is None:
+        cache = {}
+        setattr(source, "_uaa_capability_projections", cache)
+    if cache_key in cache:
+        return cache[cache_key]
+    scopes, owners, original = _python_capability_source_index(source)
+    root = id(source)
 
     import_alias_names: list[tuple[ast.alias, str]] = []
     for node in original.values():

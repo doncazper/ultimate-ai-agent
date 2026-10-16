@@ -141,6 +141,11 @@ Fragments and foreign source owners bypass the cache. Every closure still perfor
 its dependency lookups, source observations, runtime-abort checks and module-budget
 checks in the original order; neither a closure verdict nor a failed fact is cached
 by this optimization. It does not grant call purity or broaden admitted syntax.
+Dynamic-import discovery can omit the lexical clone only for a complete,
+source-owned module with no primitive importer name, imported callable, or member
+selector recognized by the existing analyzer. It retains the same source-owner
+indexing pass; fragments, foreign owners and possible origins use the full
+analysis. This empty-import proof is not a runtime-effect or eligibility verdict.
 Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,
