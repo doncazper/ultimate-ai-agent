@@ -4785,6 +4785,35 @@ def _python_module_dependency_identity(
     )
 
 
+def _python_module_dependency_syntax_fact(
+    tree: ast.Module,
+    relative_package: str,
+    kind: str,
+    build: Callable[[], tuple[Any, ...]],
+) -> tuple[Any, ...]:
+    """Reuse syntax-only tuples on an exact revision-owned module parse.
+
+    Callers use the immutable parse from _python_parsed_module, whose key binds
+    the module and complete source digest. Fragments or a foreign source owner
+    must not reuse these facts. No resolver, closure, abort verdict, or caller
+    callback is retained; each consumer still performs those operations.
+    """
+
+    if (
+        getattr(tree, "_uaa_capability_source", tree) is not tree
+        or getattr(tree, "_uaa_capability_fragment", False)
+    ):
+        return build()
+    cache = getattr(tree, "_uaa_module_dependency_syntax_facts", None)
+    if cache is None:
+        cache = {}
+        setattr(tree, "_uaa_module_dependency_syntax_facts", cache)
+    key = (relative_package, kind)
+    if key not in cache:
+        cache[key] = build()
+    return cache[key]
+
+
 def _python_module_dependency_identity_impl(
     module: str,
     source: str,
@@ -4838,9 +4867,15 @@ def _python_module_dependency_identity_impl(
         relative_package = current_module
         if not source_path.endswith("/__init__.py") and "." in current_module:
             relative_package = current_module.rsplit(".", 1)[0]
-        imported_modules = _python_import_modules(
-            tree,
-            relative_package=relative_package,
+        imported_modules = dict(
+            _python_module_dependency_syntax_fact(
+                tree, relative_package, "imports",
+                lambda: tuple(
+                    _python_import_modules(
+                        tree, relative_package=relative_package
+                    ).items()
+                ),
+            )
         )
         runtime_abort_posture = runtime_abort_posture or any(
             _pytest_collection_abort_callable_name(
@@ -4863,18 +4898,23 @@ def _python_module_dependency_identity_impl(
                 runtime_abort_posture
                 or _python_known_runtime_abort_reference(tree, imported_modules)
             )
-        lazy_export_modules = _python_lazy_export_modules(
-            tree,
-            relative_package=relative_package,
+        lazy_export_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "lazy",
+            lambda: _python_lazy_export_modules(
+                tree, relative_package=relative_package
+            ),
         )
-        grouped_lazy_export_modules = _python_grouped_lazy_export_modules(tree)
-        dynamic_import_modules = _dynamic_python_import_modules(
-            tree,
-            imported_modules,
-            relative_package=relative_package,
-            lazy_export_modules=(
-                *lazy_export_modules,
-                *grouped_lazy_export_modules,
+        grouped_lazy_export_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "grouped",
+            lambda: _python_grouped_lazy_export_modules(tree),
+        )
+        dynamic_import_modules = _python_module_dependency_syntax_fact(
+            tree, relative_package, "dynamic",
+            lambda: _dynamic_python_import_modules(
+                tree, imported_modules, relative_package=relative_package,
+                lazy_export_modules=(
+                    *lazy_export_modules, *grouped_lazy_export_modules,
+                ),
             ),
         )
         resolved_dependencies: list[tuple[str, str]] = []
@@ -4895,9 +4935,11 @@ def _python_module_dependency_identity_impl(
         dependency_candidates.extend(
             (candidate,)
             for candidate in (
-                *_python_star_import_modules(
-                    tree,
-                    relative_package=relative_package,
+                *_python_module_dependency_syntax_fact(
+                    tree, relative_package, "star",
+                    lambda: _python_star_import_modules(
+                        tree, relative_package=relative_package
+                    ),
                 ),
                 *lazy_export_modules,
                 *dynamic_import_modules,

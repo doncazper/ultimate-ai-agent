@@ -5830,3 +5830,225 @@ def test_namespace_repair_preserves_proven_ordinary_runtime_sources(
     assert guard.removed_declarations(
         tmp_path, BASE_SHA, worktree_snapshot=inventory
     ) == ()
+
+
+@pytest.mark.parametrize("root_count", [8, 16])
+def test_module_identity_shared_syntax_is_analyzed_once_per_source(
+    monkeypatch: pytest.MonkeyPatch, root_count: int,
+) -> None:
+    shared = "ultimate_ai_agent.shared"
+    sources = {
+        f"src/ultimate_ai_agent/root_{index}.py": f"import {shared}\n"
+        for index in range(root_count)
+    }
+    sources["src/ultimate_ai_agent/shared.py"] = "import math\nVALUE = 1\n"
+    resolver = guard._python_import_resolver(sources.get)
+    dynamic_calls: dict[int, int] = {}
+    original = guard._dynamic_python_import_modules
+
+    def counted(tree, imports, **kwargs):
+        dynamic_calls[id(tree)] = dynamic_calls.get(id(tree), 0) + 1
+        return original(tree, imports, **kwargs)
+
+    monkeypatch.setattr(guard, "_dynamic_python_import_modules", counted)
+    for index in range(root_count):
+        module = f"ultimate_ai_agent.root_{index}"
+        source = resolver(module)
+        assert source is not None
+        identity = guard._python_module_dependency_identity(module, source, resolver)
+        assert f"module={shared}\n" in identity
+        assert identity.endswith("runtime-abort-posture=false")
+
+    assert len(dynamic_calls) == root_count + 1
+    assert max(dynamic_calls.values()) == 1
+
+    def immutable_fact(value):
+        return isinstance(value, str) or (
+            isinstance(value, tuple) and all(immutable_fact(item) for item in value)
+        )
+
+    for tree in resolver._uaa_parsed_module_cache.values():
+        facts = tree._uaa_module_dependency_syntax_facts
+        assert len(facts) == 5
+        assert all(immutable_fact(value) for value in facts.values())
+
+
+@pytest.mark.parametrize("runtime", [False, True], ids=["ordinary", "runtime"])
+@pytest.mark.parametrize(
+    "subject",
+    [
+        "from ultimate_ai_agent.child import value\n",
+        "from ultimate_ai_agent.child import *\n",
+        "import importlib\nchild = importlib.import_module('ultimate_ai_agent.child')\n",
+        "child = __import__('child', level=1, fromlist=('leaf',))\n",
+        "_LAZY_EXPORT_MODULES = {'value': 'ultimate_ai_agent.child'}\n",
+        "_EXPORT_GROUPS = {'ultimate_ai_agent.child': ('value',)}\n",
+    ],
+    ids=["static", "wildcard", "importlib", "relative-builtin", "lazy", "grouped"],
+)
+def test_module_identity_syntax_cache_preserves_identity_and_lookup_order(
+    monkeypatch: pytest.MonkeyPatch, runtime: bool, subject: str,
+) -> None:
+    sources = {
+        "src/ultimate_ai_agent/subject.py": subject,
+        "src/ultimate_ai_agent/child.py": "import unavailable_dependency\nvalue = 1\n",
+    }
+
+    def collect():
+        owner = guard._python_import_resolver(sources.get)
+        calls: list[str] = []
+
+        def resolver(module):
+            calls.append(module)
+            return owner(module)
+
+        resolver.__dict__.update(owner.__dict__)
+        resolver._uaa_runtime_consumer = runtime
+        source = resolver("ultimate_ai_agent.subject")
+        assert source is not None
+        rounds = []
+        for _ in range(2):
+            resolver._uaa_module_identity_cache.clear()
+            calls.clear()
+            identity = guard._python_module_dependency_identity_impl(
+                "ultimate_ai_agent.subject", source, resolver,
+            )
+            rounds.append((identity, tuple(calls)))
+        assert rounds[0] == rounds[1]
+        assert "unavailable_dependency" in calls
+        return rounds
+
+    cached = collect()
+    monkeypatch.setattr(
+        guard, "_python_module_dependency_syntax_fact",
+        lambda _tree, _package, _kind, build: build(),
+    )
+    assert cached == collect()
+
+
+def test_module_identity_syntax_cache_binds_relative_package_for_same_parse() -> None:
+    module = "ultimate_ai_agent.subject"
+    text = "from . import leaf\n"
+    resolver = guard._python_import_resolver({
+        "src/ultimate_ai_agent/leaf.py": "VALUE = 1\n",
+        "src/ultimate_ai_agent/subject/leaf.py": "VALUE = 2\n",
+    }.get)
+    ordinary = guard._python_module_dependency_identity_impl(
+        module, f"path=src/ultimate_ai_agent/subject.py\n{text}", resolver,
+    )
+    package = guard._python_module_dependency_identity_impl(
+        module, f"path=src/ultimate_ai_agent/subject/__init__.py\n{text}", resolver,
+    )
+    assert "module=ultimate_ai_agent.leaf\n" in ordinary
+    assert "module=ultimate_ai_agent.subject.leaf\n" not in ordinary
+    assert "module=ultimate_ai_agent.subject.leaf\n" in package
+    assert "module=ultimate_ai_agent.leaf\n" not in package
+
+
+@pytest.mark.parametrize("change", ["root", "child", "missing-child"])
+def test_module_identity_warm_syntax_does_not_hide_changed_source(change: str) -> None:
+    module = "ultimate_ai_agent.subject"
+    path = "src/ultimate_ai_agent/subject.py"
+    child_path = "src/ultimate_ai_agent/child.py"
+    sources = {path: "import ultimate_ai_agent.child\n"}
+    if change != "missing-child":
+        sources[child_path] = "VALUE = 1\n"
+    resolver = guard._python_import_resolver(sources.get)
+    source = resolver(module)
+    assert source is not None
+    prior = guard._python_module_dependency_identity_impl(module, source, resolver)
+    if change == "root":
+        sources[path] += "VALUE = 2\n"
+    else:
+        sources[child_path] = "VALUE = 2\n"
+    # Preserve warmed AST/syntax facts while allowing new revision-owned source
+    # observations, as the comparison's source revalidation requires.
+    resolver._uaa_source_cache.clear()
+    resolver._uaa_module_identity_cache.clear()
+    current_source = resolver(module)
+    assert current_source is not None
+    current = guard._python_module_dependency_identity_impl(
+        module, current_source, resolver,
+    )
+    assert current != prior
+    if change == "missing-child":
+        assert "module=ultimate_ai_agent.child\n" not in prior
+        assert "module=ultimate_ai_agent.child\n" in current
+
+
+def test_module_identity_warm_syntax_keeps_runtime_abort_mode_separate() -> None:
+    module = "ultimate_ai_agent.subject"
+    resolver = guard._python_import_resolver({
+        "src/ultimate_ai_agent/subject.py": (
+            "from unittest import SkipTest\ndef value(): raise SkipTest\n"
+        ),
+    }.get)
+    source = resolver(module)
+    assert source is not None
+    for runtime in (False, True, False):
+        resolver._uaa_module_identity_cache.clear()
+        resolver._uaa_runtime_consumer = runtime
+        identity = guard._python_module_dependency_identity_impl(module, source, resolver)
+        assert identity.endswith(f"runtime-abort-posture={str(runtime).lower()}")
+
+
+def test_module_identity_warm_syntax_keeps_dependency_budget_checks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = "ultimate_ai_agent.subject"
+    resolver = guard._python_import_resolver({
+        "src/ultimate_ai_agent/subject.py": "import ultimate_ai_agent.child\n",
+        "src/ultimate_ai_agent/child.py": "import ultimate_ai_agent.leaf\n",
+        "src/ultimate_ai_agent/leaf.py": "VALUE = 1\n",
+    }.get)
+    source = resolver(module)
+    assert source is not None
+    guard._python_module_dependency_identity_impl(module, source, resolver)
+    resolver._uaa_module_identity_cache.clear()
+    monkeypatch.setattr(guard, "MAX_PYTHON_DEPENDENCY_MODULES", 2)
+    with pytest.raises(guard.TestCorpusGuardError, match="exceeds module budget"):
+        guard._python_module_dependency_identity_impl(module, source, resolver)
+
+
+@pytest.mark.parametrize("mode", ["fragment", "foreign-owner"])
+def test_module_identity_syntax_facts_do_not_cross_source_owners(mode: str) -> None:
+    tree = ast.parse("VALUE = 1\n")
+    if mode == "fragment":
+        tree._uaa_capability_fragment = True
+    else:
+        tree._uaa_capability_source = ast.parse("VALUE = 2\n")
+    for value in ("first", "second"):
+        assert guard._python_module_dependency_syntax_fact(
+            tree, "subject", "imports", lambda: (value,),
+        ) == (value,)
+    assert not hasattr(tree, "_uaa_module_dependency_syntax_facts")
+
+
+def test_module_identity_failed_syntax_fact_does_not_publish_success() -> None:
+    tree = ast.parse("VALUE = 1\n")
+
+    def fail():
+        raise guard.TestCorpusGuardError("synthetic syntax refusal")
+
+    with pytest.raises(guard.TestCorpusGuardError, match="synthetic syntax refusal"):
+        guard._python_module_dependency_syntax_fact(tree, "subject", "dynamic", fail)
+    assert tree._uaa_module_dependency_syntax_facts == {}
+    assert guard._python_module_dependency_syntax_fact(
+        tree, "subject", "dynamic", lambda: ("child",),
+    ) == ("child",)
+
+
+def test_module_identity_dynamic_refusal_remains_uncached_and_fail_closed() -> None:
+    module = "ultimate_ai_agent.subject"
+    text = "import importlib\nvalue = importlib.import_module(unknown_name)\n"
+    resolver = guard._python_import_resolver({
+        "src/ultimate_ai_agent/subject.py": text,
+    }.get)
+    source = resolver(module)
+    assert source is not None
+    for _ in range(2):
+        with pytest.raises(guard.TestCorpusGuardError, match="dynamic Python module dependencies"):
+            guard._python_module_dependency_identity_impl(module, source, resolver)
+        tree = guard._python_parsed_module(module, text, resolver)
+        assert ("ultimate_ai_agent", "dynamic") not in tree._uaa_module_dependency_syntax_facts
+        assert resolver._uaa_module_identity_cache == {}

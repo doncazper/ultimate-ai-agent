@@ -134,6 +134,13 @@ is a bounded static proof, not a general Python purity analysis. It covers
 represented repository sources; it does not attest to behavior inside
 unrepresented external imports.
 Test-owned helpers and parameter/decorator data retain their baseline bindings.
+Module-identity walks reuse immutable syntax tuples on the exact revision-owned
+parse, keyed separately by relative package and fact kind. This avoids rebuilding
+static, wildcard, lazy, grouped and dynamic import facts for shared dependencies.
+Fragments and foreign source owners bypass the cache. Every closure still performs
+its dependency lookups, source observations, runtime-abort checks and module-budget
+checks in the original order; neither a closure verdict nor a failed fact is cached
+by this optimization. It does not grant call purity or broaden admitted syntax.
 Source and import-resolution observations,
 including missing lookups, are revalidated before accepting the comparison.
 This normalization does not authorize test retirement, new collection hooks,
