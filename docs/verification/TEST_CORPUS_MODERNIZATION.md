@@ -515,6 +515,11 @@ isolation unavailable until their own executor is separately implemented and
 verified. The exact reviewed OS loader bootstrap profile is hash-bound; changed
 OS bootstrap rules also refuse execution until separately reviewed. The
 canonical hosted CI and test runner remain unchanged.
+Framework Python builds use their runtime-bound application interpreter
+directly, not the launcher that re-executes another binary. The policy still
+permits only that one exact executable; a missing, non-file, or escaping
+framework interpreter refuses execution without a launcher fallback. The
+selected interpreter identity is included in the runtime binding.
 
 For each side the parent freezes `src`, `tests`, `scripts`, `pyproject.toml`
 and `uv.lock` into private temporary inputs. It binds the interpreter/runtime

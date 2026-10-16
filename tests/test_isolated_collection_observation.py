@@ -259,6 +259,61 @@ def test_runtime_links_are_bound_and_may_not_escape(tmp_path: Path) -> None:
         lane._tree(tmp_path, runtime=True)
 
 
+@pytest.mark.parametrize("framework", ["", "Python", "Python3"])
+def test_worker_interpreter_selects_one_runtime_bound_executable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, framework: str
+) -> None:
+    runtime = (tmp_path / "runtime").resolve()
+    launcher = runtime / "bin/python"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_bytes(b"synthetic launcher")
+    interpreter = runtime / "Resources/Python.app/Contents/MacOS/Python"
+    interpreter.parent.mkdir(parents=True)
+    interpreter.write_bytes(b"synthetic interpreter")
+    monkeypatch.setattr(lane.sys, "executable", str(launcher))
+    monkeypatch.setattr(lane.sysconfig, "get_config_var", lambda _name: framework)
+
+    selected = lane._worker_python(runtime)
+    assert selected == (interpreter if framework else launcher)
+    profile = lane._profile(
+        python=selected, runtime=runtime, dependencies=tmp_path / "dependencies",
+        source=tmp_path / "source", harness=tmp_path / "harness",
+        scratch=tmp_path / "scratch",
+    )
+    assert profile.count("(allow process-exec ") == 1
+    assert f"(allow process-exec (literal {json.dumps(str(selected))}))" in profile
+    assert "process-fork" not in profile
+    if framework:
+        assert f"(allow process-exec (literal {json.dumps(str(launcher))}))" not in profile
+
+
+@pytest.mark.parametrize(
+    "posture", ["missing", "directory", "escaping-link", "external-launcher"]
+)
+def test_framework_interpreter_layout_refuses_without_launcher_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, posture: str
+) -> None:
+    runtime = (tmp_path / "runtime").resolve()
+    launcher = runtime / "bin/python"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_bytes(b"synthetic launcher")
+    interpreter = runtime / "Resources/Python.app/Contents/MacOS/Python"
+    interpreter.parent.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"synthetic unrelated executable")
+    if posture == "directory":
+        interpreter.mkdir()
+    elif posture == "escaping-link":
+        interpreter.symlink_to(outside)
+    elif posture == "external-launcher":
+        interpreter.write_bytes(b"synthetic interpreter")
+        launcher = outside
+    monkeypatch.setattr(lane.sys, "executable", str(launcher))
+    monkeypatch.setattr(lane.sysconfig, "get_config_var", lambda _name: "Python")
+    with pytest.raises(lane.ObservationError, match="^runtime_layout_unsupported$"):
+        lane._worker_python(runtime)
+
+
 def test_environment_does_not_copy_ambient_credentials(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -427,7 +482,7 @@ def test_real_host_interpreter_layout_is_supported() -> None:
     if sys.platform != "darwin":
         pytest.skip("macOS-only isolated observation executor")
     runtime = Path(sys.base_prefix).resolve(strict=True)
-    python = Path(sys.executable).resolve(strict=True)
+    python = lane._worker_python(runtime)
     assert python.is_relative_to(runtime)
 
 
@@ -454,7 +509,7 @@ def test_real_host_isolated_interpreter_bootstrap_succeeds(tmp_path: Path) -> No
     scratch = root / "scratch"
     scratch.mkdir()
     (scratch / "cache").mkdir()
-    python = Path(sys.executable).resolve(strict=True)
+    python = lane._worker_python(Path(sys.base_prefix).resolve(strict=True))
     policy = lane._profile(
         python=python,
         runtime=Path(sys.base_prefix).resolve(strict=True),

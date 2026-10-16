@@ -210,6 +210,23 @@ def _selection(tests: tuple[str, ...], modules: tuple[str, ...]) -> None:
         raise ObservationError("selection_invalid")
 
 
+def _worker_python(runtime: Path) -> Path:
+    """Select the interpreter itself, never a framework re-exec launcher."""
+    try:
+        python = Path(sys.executable).resolve(strict=True)
+        if not python.is_relative_to(runtime) or not python.is_file():
+            raise ObservationError("runtime_layout_unsupported")
+        if sysconfig.get_config_var("PYTHONFRAMEWORK"):
+            python = (
+                runtime / "Resources/Python.app/Contents/MacOS/Python"
+            ).resolve(strict=True)
+        if not python.is_relative_to(runtime) or not python.is_file():
+            raise ObservationError("runtime_layout_unsupported")
+    except OSError:
+        raise ObservationError("runtime_layout_unsupported") from None
+    return python
+
+
 def _profile(
     *,
     python: Path,
@@ -573,15 +590,14 @@ def observe_pair(
     dependency_root = Path(sysconfig.get_path("purelib")).resolve(strict=True)
     dependencies = _tree(dependency_root)
     runtime = Path(sys.base_prefix).resolve(strict=True)
-    python = Path(sys.executable).resolve(strict=True)
+    python = _worker_python(runtime)
     # Bind the actual interpreter and standard library. The OS itself remains
     # the trusted isolation boundary, not a claim of a portable hermetic VM.
-    if not python.is_relative_to(runtime):
-        raise ObservationError("runtime_layout_unsupported")
     runtime_files = _tree(runtime, runtime=True)
     runtime_ref = _ref(
         [
             _fingerprint(runtime_files),
+            python.relative_to(runtime).as_posix(),
             DYLD_PROFILE_SHA256,
             hashlib.sha256(sandbox_binary).hexdigest(),
             platform_identity,
