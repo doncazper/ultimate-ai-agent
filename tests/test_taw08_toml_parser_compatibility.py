@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import ast
+import builtins
 import importlib
+import runpy
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -15,25 +17,20 @@ SOURCE = Path(verifier.__file__)
 
 
 def _selection(importer) -> dict[str, object]:
-    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
-    block = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.Try)
-        and isinstance(node.body[0], ast.Import)
-        and node.body[0].names[0].name == "tomllib"
-    )
-    namespace: dict[str, object] = {
-        "__builtins__": {
-            "__import__": importer,
-            "ModuleNotFoundError": ModuleNotFoundError,
-        }
-    }
-    exec(
-        compile(ast.Module(body=[block], type_ignores=[]), "<toml-selection>", "exec"),
-        namespace,
-    )
-    return namespace
+    original_import = builtins.__import__
+
+    def select_parser(name, *args, **kwargs):
+        if name in ("tomllib", "tomli"):
+            return importer(name, *args, **kwargs)
+        return original_import(name, *args, **kwargs)
+
+    # The verifier prepends its repository paths during import; isolate those
+    # additions as well as the parser hook, including on import failure.
+    with (
+        patch.object(sys, "path", list(sys.path)),
+        patch("builtins.__import__", select_parser),
+    ):
+        return runpy.run_path(str(SOURCE))
 
 
 def test_stdlib_selection_preserves_module_identity_without_backport_import() -> None:
