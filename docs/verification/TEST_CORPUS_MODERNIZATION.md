@@ -254,6 +254,12 @@ existing attribute-target or mutator-call candidates that consume them. All
 module-execution nodes still undergo protected-name rebinding checks. This
 avoids rebuilding unused alias maps without introducing a cache, expanding the
 accepted syntax, changing declaration identity, or relaxing proof/time budgets.
+Autouse analysis separately reuses only parsed source structure, fixture aliases,
+execution nodes, and the static import map within one owning resolver, keyed by
+the exact source path and full source digest. Selected bindings, seen-import
+context, dependency results, and declaration results are not part of that reuse:
+their existing checks and positive/missing source observations still run. No
+cross-resolver cache, new accepted syntax, retirement, or budget waiver is added.
 The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are

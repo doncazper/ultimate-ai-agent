@@ -13911,3 +13911,222 @@ def test_fixture_alias_candidate_resolution_preserves_position_and_source() -> N
     ):
         guard._fixture_aliases(ast.parse(changed))
     assert guard._fixture_aliases(ast.parse(source)) == {"p.fixture"}
+
+
+@pytest.mark.parametrize("repetitions", (1, 16, 64))
+@pytest.mark.parametrize("runtime_consumer", (False, True))
+def test_autouse_source_preparation_runs_once_per_resolver_source(
+    monkeypatch: pytest.MonkeyPatch,
+    repetitions: int,
+    runtime_consumer: bool,
+) -> None:
+    source = "from absent import value\n" + "ordinary = 1\n" * 32
+    resolver = guard._python_import_resolver(lambda _path: None)
+    if runtime_consumer:
+        resolver = guard._python_runtime_consumer_resolver(resolver)
+    original_aliases = guard._fixture_aliases
+    original_imports = guard._python_import_modules
+    original_parse = guard.ast.parse
+    parses = 0
+    preparations = 0
+    whole_module_walks = 0
+
+    def parse(text, *args, **kwargs):
+        nonlocal parses
+        parses += text == source
+        return original_parse(text, *args, **kwargs)
+
+    def aliases(tree):
+        nonlocal preparations
+        preparations += 1
+        return original_aliases(tree)
+
+    def imports(tree, **kwargs):
+        nonlocal whole_module_walks
+        whole_module_walks += len(tree.body) > 1
+        return original_imports(tree, **kwargs)
+
+    monkeypatch.setattr(guard, "_fixture_aliases", aliases)
+    monkeypatch.setattr(guard, "_python_import_modules", imports)
+    monkeypatch.setattr(guard.ast, "parse", parse)
+    for _ in range(repetitions):
+        assert (
+            guard._autouse_fixture_declarations(
+                source, "tests/test_sample.py", resolver
+            )
+            == ()
+        )
+
+    assert preparations == 1
+    assert whole_module_walks == 1
+    assert parses == 1
+    assert (
+        guard._autouse_fixture_declarations(
+            source,
+            "tests/test_sample.py",
+            guard._python_import_resolver(lambda _path: None),
+        )
+        == ()
+    )
+    assert preparations == 2
+    assert whole_module_walks == 2
+    assert parses == 2
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_autouse_source_preparation_binds_path_bytes_and_selected_names(
+    reverse: bool,
+) -> None:
+    source = (
+        "import pytest\n@pytest.fixture(autouse=True)\n"
+        "def first(): return 1\n@pytest.fixture(autouse=True)\n"
+        "def second(): return 2\n"
+    )
+    cases = [
+        (source, "tests/first.py", frozenset({"first"})),
+        (source, "tests/first.py", frozenset({"second"})),
+        (
+            source.replace("return 1", "return 3"),
+            "tests/first.py",
+            frozenset({"first"}),
+        ),
+        (source, "tests/second.py", frozenset({"first"})),
+        (source, "tests/first.py", frozenset({"first"})),
+    ]
+    if reverse:
+        cases.reverse()
+    resolver = guard._python_import_resolver(lambda _path: None)
+    refs = []
+    for text, path, names in cases:
+        actual = guard._autouse_fixture_declarations(
+            text, path, resolver, binding_names=names
+        )
+        fresh = guard._autouse_fixture_declarations(
+            text,
+            path,
+            guard._python_import_resolver(lambda _path: None),
+            binding_names=names,
+        )
+        assert actual == fresh
+        refs.append(actual)
+    assert len(set(refs)) == 4
+    assert len(getattr(resolver, "_uaa_autouse_module_shape_cache")) == 3
+
+
+@pytest.mark.parametrize("seen", (False, True))
+def test_autouse_source_preparation_preserves_seen_import_context(seen: bool) -> None:
+    source = "from support import environment\n"
+    helper = (
+        "import pytest\n@pytest.fixture(autouse=True)\ndef environment(): return 1\n"
+    )
+    resolver = guard._python_import_resolver(
+        lambda path: helper if path == "support.py" else None
+    )
+    results = []
+    for skip in (seen, not seen, seen):
+        result = guard._autouse_fixture_declarations(
+            source,
+            "tests/test_sample.py",
+            resolver,
+            _seen_imports=(
+                frozenset({("support", "environment")}) if skip else frozenset()
+            ),
+        )
+        assert bool(result) is not skip
+        results.append(result)
+    assert results[0] == results[2]
+    assert getattr(resolver, "_uaa_source_cache")["support.environment"] is None
+
+
+@pytest.mark.parametrize("initial_present", (False, True))
+def test_autouse_source_preparation_does_not_cache_dependency_results(
+    initial_present: bool,
+) -> None:
+    source = "import support as imported\nsetup = imported.environment\n"
+    helper = (
+        "import pytest\n@pytest.fixture(autouse=True)\ndef environment(): return 1\n"
+    )
+    observations = []
+    present = initial_present
+
+    def resolver(module):
+        observations.append(module)
+        return f"path=support.py\n{helper}" if module == "support" and present else None
+
+    setattr(resolver, "_uaa_autouse_module_shape_cache", {})
+    first = guard._autouse_fixture_declarations(
+        source, "tests/test_sample.py", resolver
+    )
+    observations.clear()
+    helper = helper.replace("return 1", "return 2")
+    present = True
+    second = guard._autouse_fixture_declarations(
+        source, "tests/test_sample.py", resolver
+    )
+    assert first != second
+    assert "support" in observations
+    helper = helper.replace("return 2", "return 1")
+    present = initial_present
+    assert (
+        guard._autouse_fixture_declarations(source, "tests/test_sample.py", resolver)
+        == first
+    )
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_autouse_source_preparation_binds_embedded_package_path(reverse: bool) -> None:
+    source = "from .helper import environment\n"
+    helper = (
+        "import pytest\n@pytest.fixture(autouse=True)\ndef environment(): return 1\n"
+    )
+    sources = {
+        "sample/package/helper.py": helper,
+        "sample/helper.py": helper.replace("return 1", "return 2"),
+    }
+    paths = ["sample/package/__init__.py", "sample/package.py"]
+    if reverse:
+        paths.reverse()
+    resolver = guard._python_import_resolver(sources.get)
+    results = []
+    for path in [*paths, paths[0]]:
+        actual = guard._autouse_fixture_declarations(
+            f"path={path}\n{source}", "ignored", resolver
+        )
+        fresh = guard._autouse_fixture_declarations(
+            source, path, guard._python_import_resolver(sources.get)
+        )
+        assert actual == fresh
+        results.append(actual)
+    assert results[0] != results[1]
+    assert results[0] == results[2]
+
+
+@pytest.mark.parametrize(
+    "suffix, message",
+    (
+        ("pytest.fixture = replacement\n", "dynamic pytest fixture alias"),
+        ("def malformed(\n", "changed autouse pytest fixtures"),
+        (
+            "class TestGroup:\n    @pytest.fixture(autouse=True)\n"
+            "    def environment(self): pass\n",
+            "class-local autouse",
+        ),
+        (
+            "@pytest.fixture(autouse=unknown)\ndef environment(): pass\n",
+            "changed autouse pytest fixtures",
+        ),
+    ),
+)
+def test_autouse_source_preparation_warm_cache_remains_fail_closed(
+    suffix: str,
+    message: str,
+) -> None:
+    resolver = guard._python_import_resolver(lambda _path: None)
+    path = "tests/test_sample.py"
+    assert guard._autouse_fixture_declarations("import pytest\n", path, resolver) == ()
+    for _ in range(2):
+        with pytest.raises(guard.TestCorpusGuardError, match=message):
+            guard._autouse_fixture_declarations(
+                "import pytest\n" + suffix, path, resolver
+            )
+    assert guard._autouse_fixture_declarations("import pytest\n", path, resolver) == ()
