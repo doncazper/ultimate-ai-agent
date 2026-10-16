@@ -6233,3 +6233,17 @@ def test_dotted_import_origin_comes_from_complete_source_not_supplied_map(
     assert guard._dynamic_python_import_modules(
         tree, {}, relative_package="subject", lazy_export_modules=(),
     ) == ("ultimate_ai_agent.child",)
+
+
+@pytest.mark.parametrize("producer", ["builtins.__import__", "importlib.import_module"])
+def test_from_import_module_origin_comes_from_complete_source_not_supplied_map(
+    producer: str,
+) -> None:
+    tree = ast.parse(
+        f"from {producer} import fetch\nvalue = fetch('ultimate_ai_agent.child')\n"
+    )
+    # The full analyzer conservatively binds both the member and its module.
+    # The source-owned origin screen must preserve that result without context.
+    assert guard._dynamic_python_import_modules(
+        tree, {}, relative_package="subject", lazy_export_modules=(),
+    ) == ("ultimate_ai_agent.child",)

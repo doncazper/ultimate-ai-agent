@@ -2191,8 +2191,9 @@ def _python_dynamic_import_origin_present(
             alias.name in {"builtins.__import__", "importlib.import_module"}
             for alias in node.names
         ))
-        or (isinstance(node, ast.ImportFrom) and any(
-            alias.name in {"__import__", "import_module"} for alias in node.names
+        or (isinstance(node, ast.ImportFrom) and (
+            node.module in {"builtins.__import__", "importlib.import_module"}
+            or any(alias.name in {"__import__", "import_module"} for alias in node.names)
         ))
         for node in ast.walk(tree)
     )
