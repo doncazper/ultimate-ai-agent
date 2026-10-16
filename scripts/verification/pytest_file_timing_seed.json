@@ -3,7 +3,7 @@
   "declared_source_run_status": "green",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1038,
+  "timed_file_count": 1040,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -4589,6 +4589,16 @@
       "path": "tests/test_task_planning_contracts.py",
       "seconds": 0.252067,
       "source": "shard-elapsed-fallback"
+    },
+    {
+      "path": "tests/test_taw08_toml_import_provenance.py",
+      "seconds": 10.89,
+      "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_taw08_toml_parser_compatibility.py",
+      "seconds": 0.08,
+      "source": "pytest-duration-summary"
     },
     {
       "path": "tests/test_test_corpus_guard.py",
