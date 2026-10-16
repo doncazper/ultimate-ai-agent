@@ -469,13 +469,22 @@ def _observe(
                 timeout=TIMEOUT_SECONDS,
                 check=False,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except subprocess.TimeoutExpired:
+            raise ObservationError("isolated_run_timeout") from None
+        except OSError:
             raise ObservationError("isolated_run_unavailable") from None
         if completed.returncode != 0:
             raise ObservationError("isolated_run_failed")
-        observation = _decode(
-            _read(output, MAX_OUTPUT_BYTES, private_output=True), nonce, len(modules)
-        )
+        try:
+            data = _read(output, MAX_OUTPUT_BYTES, private_output=True)
+        except ObservationError as exc:
+            reason = (
+                "observation_unsafe"
+                if str(exc) == "unsafe_input"
+                else "observation_unavailable"
+            )
+            raise ObservationError(reason) from None
+        observation = _decode(data, nonce, len(modules))
         if _tree(frozen, source=True) != files or _tree(source, source=True) != files:
             raise ObservationError("source_changed")
         test_inputs = {

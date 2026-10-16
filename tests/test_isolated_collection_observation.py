@@ -310,22 +310,23 @@ def test_changed_test_inputs_rejected_before_launch(
 
 
 @pytest.mark.parametrize(
-    "posture",
+    "posture,reason",
     [
-        "missing",
-        "timeout",
-        "launch-failed",
-        "nonzero",
-        "source-drift",
-        "snapshot-drift",
-        "unsafe-mode",
-        "linked-output",
+        ("missing", "observation_unavailable"),
+        ("timeout", "isolated_run_timeout"),
+        ("launch-failed", "isolated_run_unavailable"),
+        ("nonzero", "isolated_run_failed"),
+        ("source-drift", "source_changed"),
+        ("snapshot-drift", "source_changed"),
+        ("unsafe-mode", "observation_unsafe"),
+        ("linked-output", "observation_unsafe"),
     ],
 )
 def test_executor_failures_and_drift_cannot_produce_an_observation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     posture: str,
+    reason: str,
 ) -> None:
     source = _source(tmp_path / "source")
     files = lane._tree(source, source=True)
@@ -375,7 +376,7 @@ def test_executor_failures_and_drift_cannot_produce_an_observation(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(lane.subprocess, "run", synthetic_run)
-    with pytest.raises(lane.ObservationError):
+    with pytest.raises(lane.ObservationError, match=f"^{reason}$"):
         lane._observe(
             source,
             files,

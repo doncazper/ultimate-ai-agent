@@ -541,7 +541,13 @@ hashed item identity, counts, and observed complete model counts. Raw child
 stdout/stderr are discarded. Missing or duplicate items, collection errors,
 skips, deselection, disabling marks, missing model construction, changed
 retained builtins, malformed output, timeouts and source/environment drift
-refuse the observation. An inactive `skipif` mark is represented only when its
+refuse the observation. Startup failures report `isolated_run_unavailable`,
+timeouts report `isolated_run_timeout`, and nonzero exits report
+`isolated_run_failed`. Missing, unreadable or changing worker output reports
+`observation_unavailable`; unsafe output-file metadata reports
+`observation_unsafe`. These worker-result failures do not blame host source
+inputs. Valid output still undergoes the same schema and collection checks.
+An inactive `skipif` mark is represented only when its
 already-materialized conditions are exact false booleans and its bounded reason
 is a string. Its full posture is hashed in collection order; strings, arbitrary
 objects, missing conditions and unsupported mark shapes are never evaluated or
