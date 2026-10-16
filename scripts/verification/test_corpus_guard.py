@@ -7797,6 +7797,7 @@ def _python_runtime_consumer_resolver(
         "_uaa_binding_module_analysis_cache",
         "_uaa_root_binding_identity_cache",
         "_uaa_autouse_fixture_cache",
+        "_uaa_autouse_module_shape_cache",
         "_uaa_namespace_binding_identity_cache",
     ):
         setattr(resolve, cache_name, {})
@@ -13416,6 +13417,7 @@ def _python_import_resolver(
     setattr(resolve, "_uaa_side_effect_dependency_cache", {})
     setattr(resolve, "_uaa_side_effect_effect_cache", {})
     setattr(resolve, "_uaa_autouse_fixture_cache", {})
+    setattr(resolve, "_uaa_autouse_module_shape_cache", {})
 
     return resolve
 
@@ -14297,13 +14299,36 @@ def _autouse_fixture_declarations(
     if source.startswith("path="):
         source_path, source = source.split("\n", 1)
         path = source_path.removeprefix("path=")
-    try:
-        tree = ast.parse(source, filename=path)
-    except SyntaxError as exc:
-        raise TestCorpusGuardError(
-            "changed autouse pytest fixtures cannot be inventoried safely"
-        ) from exc
-    fixture_aliases = _fixture_aliases(tree)
+    module = _python_module_name_for_path(path)
+    relative_package = module
+    if not path.endswith("/__init__.py") and "." in module:
+        relative_package = module.rsplit(".", 1)[0]
+    # Reuse source-only preparation, never selected declarations or resolver
+    # results. Every dependency lookup and context-sensitive check below still
+    # runs, including on a warm shape and for each selected/seen binding set.
+    shape_cache: dict[
+        tuple[str, str],
+        tuple[ast.Module, set[str], tuple[ast.AST, ...], dict[str, tuple[str, ...]]],
+    ] = getattr(import_source_resolver, "_uaa_autouse_module_shape_cache", {})
+    shape_key = (path, hashlib.sha256(source.encode("utf-8")).hexdigest())
+    shape = shape_cache.get(shape_key)
+    if shape is None:
+        try:
+            tree = ast.parse(source, filename=path)
+        except SyntaxError as exc:
+            raise TestCorpusGuardError(
+                "changed autouse pytest fixtures cannot be inventoried safely"
+            ) from exc
+        fixture_aliases = _fixture_aliases(tree)
+        module_nodes = _module_execution_nodes(tree)
+        imported_modules = (
+            _python_import_modules(tree, relative_package=relative_package)
+            if import_source_resolver is not None
+            else {}
+        )
+        shape = (tree, fixture_aliases, module_nodes, imported_modules)
+        shape_cache[shape_key] = shape
+    tree, fixture_aliases, module_nodes, imported_modules = shape
 
     def autouse_enabled(call: ast.Call) -> bool:
         for keyword in call.keywords:
@@ -14353,7 +14378,6 @@ def _autouse_fixture_declarations(
                             changed = True
         return factory_aliases
 
-    module_nodes = _module_execution_nodes(tree)
     factory_aliases = factory_aliases_for(module_nodes)
 
     def has_autouse_declaration(
@@ -14407,7 +14431,6 @@ def _autouse_fixture_declarations(
         for node in module_nodes
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
-    module = _python_module_name_for_path(path)
     source_with_path = f"path={path}\n{source}"
 
     def binding_source(name: str) -> str:
@@ -14471,14 +14494,7 @@ def _autouse_fixture_declarations(
         # the returned FixtureFunctionDefinition is retained.  A bare expression
         # discards that wrapper and leaves the original function unmarked.
     if import_source_resolver is not None:
-        relative_package = module
-        if not path.endswith("/__init__.py") and "." in module:
-            relative_package = module.rsplit(".", 1)[0]
         direct_node_ids = {id(node) for node in tree.body}
-        imported_modules = _python_import_modules(
-            tree,
-            relative_package=relative_package,
-        )
 
         def imported_binding_is_autouse_factory(
             candidates: tuple[str, ...],
