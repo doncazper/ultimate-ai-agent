@@ -249,6 +249,11 @@ the declaration identity.
 Class-local autouse fixtures, including class-scope factory aliases, fail closed
 rather than applying a file-wide identity. Post-definition fixture applications
 also resolve bounded module-execution aliases before classifying their target.
+Fixture-alias mutation checks resolve position-bound name aliases only for the
+existing attribute-target or mutator-call candidates that consume them. All
+module-execution nodes still undergo protected-name rebinding checks. This
+avoids rebuilding unused alias maps without introducing a cache, expanding the
+accepted syntax, changing declaration identity, or relaxing proof/time budgets.
 The canonical hosted CI workflow,
 local toolchain action, lane wrapper, shard runner, command manifest, directly
 loaded pytest plugins, and their bounded transitive local dependency closure are
