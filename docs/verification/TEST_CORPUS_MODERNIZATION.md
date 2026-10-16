@@ -53,7 +53,158 @@ Enclosing static suite titles are part of each frontend identity, and
 comment-separated or compound unbraced control-flow registrations fail closed.
 Python imported parameter data and imported parameter-ID helpers are bound to
 the exact referenced declaration and its recursively resolvable local
-dependencies. Dynamic parameter-module imports, including calls through assigned
+dependencies. Application implementation code is an execution subject rather
+than test inventory. Baseline runtime analysis may reuse current application
+source only after proving the relevant revision-specific import closures are
+collection-neutral and preserving revision-owned evidence for consumers that
+can abort test execution. New application dependencies must belong to the
+successfully proven current closure of an existing substituted application
+module; an absent baseline file alone never permits reuse. Recognized
+execution-abort and dynamic import forms cannot be hidden, including object-bound
+skip methods and bounded builtin getter aliases. For new execution-dependency
+admission, a recognized
+getter's member name must resolve from a literal or bounded string
+concatenation. A `skipTest` selector, unresolved selector, or unsupported getter
+argument shape refuses admission, including in dormant function bodies. Getter
+references also require a closed use grammar: an inline assignment, wrapper,
+container or callback must not conceal an unproven getter invocation. Unsupported
+getter-value escapes refuse admission. This stricter admission screen does not
+change the existing scope-sensitive test consumer's alias and rebinding rules.
+Alternate attribute-lookup capabilities must satisfy the same selector and use
+proof; a bound or unbound `__getattribute__` lookup cannot bypass that boundary.
+Builtin maps and dynamic namespace access retain their lookup capability through
+aliases and escapes; an unproved namespace selection cannot become an ordinary
+dependency merely because its getter is obtained indirectly.
+Dynamically obtained namespaces, code-execution callables, and dynamic fixture
+activation use the same conservative capability boundary, including aliases,
+escaped values, and reflected selectors.
+That boundary includes compilation, executable-code constructors/carriers and
+pytest hook dispatch/retrieval. Ordinary qualified operations such as regular
+expression compilation do not acquire builtin execution authority by spelling.
+Library compiler factories and member-reflection getters share the same
+module-member registry across direct imports, aliases and reflected selection.
+Executable-data loaders (including pickle/native pickle, marshal, shelve and
+unsafe YAML constructors) retain their source-qualified capability; ordinary
+JSON loaders and safe YAML loading do not inherit it by member spelling.
+Test-result writers and lifecycle state also retain abort-sensitive identity.
+Shared environment writes, mutator captures and unproved mapping escapes refuse
+new-source normalization: one test can otherwise change whether another runs.
+Closed reads and fresh flat environment copies remain admissible. Lexical aliases
+retain the shared mapping owner, while local/formal shadowing does not invent it.
+Imported copy helpers require one source-owned producer, including writes through
+enclosing `nonlocal` bindings; a retained import fact cannot certify a rebound
+callable as read-only. Explicit loader submodules share
+the executable-data boundary. Known process-wide directory, tracing, warning and
+import-state capabilities, and writes or mutator captures through imported
+objects, retain the same conservative posture. Live nested state is not made
+private by a shallow copy. These checks cover represented source forms and do
+not attest to arbitrary effects inside unrepresented external libraries.
+Collection-inert dormant writers are still unproved runtime capabilities; this
+does not claim that an uncalled body executed or establish general Python purity.
+Consumer matching strips only terminal generated fingerprint metadata while
+preserving occurrence suffixes and literal hash characters inside test paths.
+Direct and reflected namespace-property selection share the same classification;
+importer module aliases retain provenance through the namespace alias graph.
+Frame builtins (`f_builtins`) share that boundary with frame globals and locals,
+including direct access, reflected selectors and getter aliases.
+The public `operator` and native `_operator` exports share one capability family
+for explicit imports, module aliases, and dynamic namespace selection.
+Dynamic target discovery and runtime capability checks share that alias
+provenance. Runtime checks select source-owned facts for the reached execution
+slice, so a module-level alias cannot disappear at a callable boundary.
+Wildcard import sources refuse admission because their absent or unrepresented
+exports cannot prove that a loaded name lacks an execution capability.
+Strict consumers likewise refuse unresolved wildcard sources when their loaded
+names require those exports; missing source is not inert evidence.
+Capability names belong to their
+lexical binding owners: a formal or local identifier does not acquire builtin
+authority from its spelling, while definition inputs retain their enclosing
+owner and a shadowed sibling does not erase an actual capability elsewhere.
+Module/class annotation-only, conditional, or deleted bindings cannot prove
+builtin shadowing; opaque executor aliases retain their capability at capture,
+even when the later invocation belongs to a different execution slice.
+Separately parsed consumer roots reuse lexical facts only after their complete
+syntax and source position match the owning module's parse.
+Import-time collection evidence also requires a positive effect proof, rather
+than only the absence of a recognized skip call. Executed object writes and
+opaque calls cannot disappear when a new dependency or changed existing module
+is normalized. Definition headers and class execution are distinguished from
+dormant callable bodies. Unknown effects refuse the affected comparison; this
+is a bounded static proof, not a general Python purity analysis. It covers
+represented repository sources; it does not attest to behavior inside
+unrepresented external imports.
+Test-owned helpers and parameter/decorator data retain their baseline bindings.
+Source and import-resolution observations,
+including missing lookups, are revalidated before accepting the comparison.
+This normalization does not authorize test retirement, new collection hooks,
+ambiguous imports, or relaxed dependency budgets. Its proof is limited to the
+guard's recognized static syntax and import forms.
+
+Collection neutrality does not prove that a returned value cannot activate a
+caller's existing skip branch. Ordinary inventory retains its original declaration
+refs. A comparison must separately certify the source substitutions and helper
+normalizations that could affect each consumer, including consumers whose ordinary
+refs already match. The certificate retains represented source candidates and
+missing lookups through cached helpers, callbacks and fixtures. Unchanged exact
+represented inputs with no normalization effect can retain the ordinary ref; this
+is not a claim that the consumer cannot abort at runtime. Uncertainty within a
+potentially affected consumer requires strict proof rather than an empty certificate.
+For an opaque imported binding, positively differing original source bytes may
+support conservative retirement evidence. This requires the binding's exact
+source owner and both revision observations; it cannot establish safe retention
+for an unchanged or unproven opaque source.
+
+When normalization could affect an abort-sensitive test, method, helper or fixture,
+strict evidence binds its dependency closure to the original revision, including
+separate value-producing arguments passed to an aborting helper. This strict
+consumer evidence includes passed abort capabilities and injected fixture
+dependencies, and survives the non-aborting-helper normalization retry. A harmless
+value change or dependency relocation may conservatively require review when the
+consumer can abort; the guard does not claim general value equivalence.
+Reached definitions also retain represented header expressions, including
+positional and keyword-only defaults, decorators and annotations, in their
+defining lexical scope. Default bindings precede parameter shadowing; a captured
+callable's body retains its separate runtime lookup scope. Default-bound callbacks
+and default factories contribute producer evidence without executing expressions.
+Dependencies remain conservative when a caller overrides an argument; this is
+not a general Python argument binder. Evidence follows represented reached
+bindings; a compound or class binding may conservatively retain multiple
+contained definitions.
+Writes through objects referenced by reached defaults, including aliases and
+unproven call escapes, must retain their producer evidence or refuse the
+affected comparison. Capturing a mutable object is distinct from capturing a
+member value before a later write. An unchanged-input control does not prove
+that a changed producer is harmless.
+Executed writes or calls through an unresolved dynamic namespace address retain
+unknown-owner effects in the executing lexical scope. Missing a statically named
+receiver does not establish that a reached captured object was unaffected.
+The consumer proof uses the existing local and explicitly imported fixture graph.
+Conftest and plugin discovery retain their separate existing checks.
+Module values, static members and explicit package namespaces retain their lexical
+import bindings. Competing import bindings that cannot be selected exactly refuse
+the required strict comparison; one from-import's
+module/member alternatives remain a single supported import specification.
+Relative and absolute from-imports of the same canonical member share that
+specification; different resolved members remain distinct.
+Reached helpers retain declared global and nonlocal import writes as producer
+dependencies even when the helper does not read the imported name itself.
+An unreferenced installer does not replace the consumer's selected binding.
+
+Admission shares exact source and dependency-edge facts within each revision's
+proof graph instead of rebuilding cached dependency suffixes for every root.
+Later baseline-only runtime imports reuse completed neutrality facts and
+incremental component bounds without copying the accumulated graph for every
+compatibility check. Incomplete regions cannot publish a stable verdict.
+Only successful existing roots can publish new members; an unsuccessful root
+cannot publish a partial map, while a separate successful root may prove a
+shared member. The existing per-closure module limit and global baseline-index
+limit remain separate. Complete graph components within the module limit admit
+a cheap budget proof; larger components require bounded exact reachability
+checks for each queried root. Those fallback checks can repeat traversal, so
+this does not claim linear total work for arbitrary oversized graphs or relax
+any dependency limit.
+
+Dynamic parameter-module imports, including calls through assigned
 import-function aliases, and module-executed dynamic Python code through `exec`,
 `eval`, `compile`, `__import__`, or bounded aliases fail closed. Changes to an
 imported initializer or ID helper, including one in
