@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
 import sys
+import sysconfig
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -409,6 +411,81 @@ def test_direct_observation_records_reject_invalid_shapes(
 ) -> None:
     with pytest.raises(lane.ObservationError):
         replace(_observation(), **mutation)
+
+
+def test_real_host_os_bootstrap_policy_is_reviewed() -> None:
+    if sys.platform != "darwin":
+        pytest.skip("macOS-only isolated observation executor")
+    assert Path("/usr/bin/sandbox-exec").is_file()
+    assert (
+        hashlib.sha256(lane._read(lane.DYLD_PROFILE)).hexdigest()
+        == lane.DYLD_PROFILE_SHA256
+    )
+
+
+def test_real_host_interpreter_layout_is_supported() -> None:
+    if sys.platform != "darwin":
+        pytest.skip("macOS-only isolated observation executor")
+    runtime = Path(sys.base_prefix).resolve(strict=True)
+    python = Path(sys.executable).resolve(strict=True)
+    assert python.is_relative_to(runtime)
+
+
+def test_real_host_runtime_census_is_supported() -> None:
+    if sys.platform != "darwin":
+        pytest.skip("macOS-only isolated observation executor")
+    assert lane._tree(Path(sys.base_prefix).resolve(strict=True), runtime=True)
+
+
+def test_real_host_dependency_census_is_supported() -> None:
+    if sys.platform != "darwin":
+        pytest.skip("macOS-only isolated observation executor")
+    assert lane._tree(Path(sysconfig.get_path("purelib")).resolve(strict=True))
+
+
+def test_real_host_isolated_interpreter_bootstrap_succeeds(tmp_path: Path) -> None:
+    if sys.platform != "darwin":
+        pytest.skip("macOS-only isolated observation executor")
+    assert (
+        hashlib.sha256(lane._read(lane.DYLD_PROFILE)).hexdigest()
+        == lane.DYLD_PROFILE_SHA256
+    )
+    root = tmp_path.resolve()
+    scratch = root / "scratch"
+    scratch.mkdir()
+    (scratch / "cache").mkdir()
+    python = Path(sys.executable).resolve(strict=True)
+    policy = lane._profile(
+        python=python,
+        runtime=Path(sys.base_prefix).resolve(strict=True),
+        dependencies=root / "dependencies",
+        source=root / "source",
+        harness=root / "harness",
+        scratch=scratch,
+    )
+    # Isolate startup from dependency imports and collection. Do not expose
+    # child output or relax the same deny-default executor policy.
+    result = subprocess.run(
+        [
+            "/usr/bin/sandbox-exec",
+            "-p",
+            policy,
+            str(python),
+            "-I",
+            "-B",
+            "-S",
+            "-c",
+            "pass",
+        ],
+        cwd=root,
+        env=lane._environment(scratch),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=lane.TIMEOUT_SECONDS,
+        check=False,
+    )
+    assert result.returncode == 0
 
 
 def test_real_pydantic_construction_is_observed_without_running_test_body(

@@ -565,6 +565,11 @@ Safe disable is to stop invoking this standalone command; no app or canonical
 verification behavior depends on it. Focused coverage is in
 `tests/test_isolated_collection_observation.py`; the real isolation and model
 construction cases require macOS and are explicitly skipped elsewhere.
+Separate real-host prerequisite tests identify an unreviewed OS bootstrap
+policy, unsupported interpreter layout, runtime/dependency census refusal, or
+isolated interpreter startup failure using only stable test references in
+hosted diagnostics. They do not skip a failed prerequisite on macOS, grant
+additional sandbox permissions, or replace the end-to-end isolation cases.
 
 ## Later Phase Rules
 
