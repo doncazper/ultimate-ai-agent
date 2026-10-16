@@ -362,9 +362,13 @@ if os.environ.get(_EXPORT_FOUNDER_INPUTS_ENV) == "1":
 
 
 try:
-    import tomllib
+    import tomllib as _stdlib_toml
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
-    import tomli as tomllib
+    import tomli as _backport_toml
+
+    tomllib = _backport_toml
+else:
+    tomllib = _stdlib_toml
 
 from packaging.markers import InvalidMarker, Marker, default_environment  # noqa: E402
 from packaging.requirements import InvalidRequirement, Requirement  # noqa: E402
