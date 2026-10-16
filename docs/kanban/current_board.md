@@ -7,6 +7,14 @@ Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`.
 Founder Command Center product-loop planning board:
 `docs/kanban/founder_command_center_board.md`.
 
+Founder priority: finish the polished main local Chat window. The accepted
+`contract-ref:chat-explicit-local-turn:v1` follow-up permits one exact-approved
+configured loopback turn per explicit Send, with durable one-use attempts and
+no tools, cloud, external actions, or automatic retry. The bounded implementation
+is under PR qualification; it is not broader queue completion or packaged
+startup proof. Contract, CLI inspection, and verification:
+`docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`.
+
 Ordered queue insertion: Tool-Aware Cognition And Chat Quality is a finite
 TAW-00 through TAW-08 implementation program that extends the existing Turn
 Contract Router, preserves the local model as the language/reasoning engine,

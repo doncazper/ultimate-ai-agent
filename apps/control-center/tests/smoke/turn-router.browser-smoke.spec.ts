@@ -179,6 +179,8 @@ test("chat harness smoke records safe receipt refs without runtime authority", a
 
 async function openChatRoute(page: Page) {
   await page.goto("/chat");
+  await page.locator("summary").filter({ hasText: /^Details$/ }).click();
+  await page.locator("summary").filter({ hasText: /^Connection & safety$/ }).click();
   await expect(
     page.getByRole("heading", { exact: true, name: "Chat Local Operator" }),
   ).toBeVisible({ timeout: 20_000 });

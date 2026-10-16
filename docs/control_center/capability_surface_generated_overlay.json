@@ -1725,7 +1725,7 @@
         {
           "path": "/chat",
           "label": "Chat",
-          "group": "Review",
+          "group": "Founder Loop",
           "ui_status": "local gated",
           "release_status": "ship",
           "owner": "mixed",

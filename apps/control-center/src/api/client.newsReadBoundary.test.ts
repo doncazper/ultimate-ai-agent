@@ -65,4 +65,35 @@ describe("News read ownership and deadline", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[1]?.signal.aborted).toBe(true);
   });
+
+  it("bounds queued Chat reads by one deadline and never starts expired requests", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    const fetchMock = vi.fn().mockImplementation(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const outcome = loadControlCenterData(binding, "chat").then(() => "unexpected", () => "rejected");
+    await vi.advanceTimersByTimeAsync(8001);
+    expect(await outcome).toBe("rejected");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.signal.aborted).toBe(true);
+    await vi.advanceTimersByTimeAsync(80_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes response-body parsing in the same Chat deadline", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({
+        "X-UAA-Backend-Revision-Ref": binding.backendRevisionRef,
+        "X-UAA-Backend-Instance-Ref": binding.backendInstanceRef,
+      }),
+      json: () => new Promise(() => {}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const outcome = loadControlCenterData(binding, "chat").then(() => "unexpected", () => "rejected");
+    await vi.advanceTimersByTimeAsync(8001);
+    expect(await outcome).toBe("rejected");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.signal.aborted).toBe(true);
+  });
 });

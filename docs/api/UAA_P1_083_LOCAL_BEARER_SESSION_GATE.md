@@ -47,6 +47,19 @@ perimeter with their already-configured local bearer so callers do not need two
 different bearer values for one route. Those endpoint gates remain separately
 disabled-by-default and scoped to their own safety contracts.
 
+The later main-Chat follow-up adds an exact first-party M164 entry path at the
+existing `GET /v1/models` and `POST /v1/chat/completions` operations. With M164
+explicitly enabled and its gateway key configured, the Control Center bearer
+is accepted only alongside `X-UAA-Control-Center-Mutation-Binding: backend-truth.v1`
+and current expected backend revision, instance, and truth-envelope headers.
+Missing, stale, or substituted provenance returns a redacted `409`; invalid
+credentials remain denied. The dev-only bypass cannot satisfy this entry path.
+Gateway and provider secrets remain server-side. Existing gateway-key clients,
+M151 mock-only behavior, operation IDs, route side-effect classifications,
+idempotency headers, response safety receipts, and disabled-default posture
+are unchanged. See the scoped
+`docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md` follow-up.
+
 CORS remains browser hardening, not auth. UAA-P1-082 preflight behavior stays
 limited to explicit local Control Center origins, no wildcard CORS, and no CORS
 credentials.

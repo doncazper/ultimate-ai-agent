@@ -26,6 +26,30 @@ The launcher starts the existing FastAPI backend and CCC Web Control Center
 development server. For private operator trial boot, Control Center is the
 first-party product surface and OpenWebUI is the secondary local shell.
 
+Main Chat uses the existing Control Center session bearer with current
+backend-truth provenance to access the explicitly enabled M164 gateway. The
+configured model-gateway key may differ from the Control Center bearer: it
+stays on the backend, as does the backend/provider key. No additional secret is
+handed to the browser. Missing, expired, or rebound provenance fails closed;
+the M151 deterministic test shell is mock-only, not conversational readiness.
+Send separately confirms one exact local turn. The Python core validates its
+LocalApprovalAuthority grant and records a one-use durable attempt; a session
+alone or repeated attempt cannot invoke the first-party model lane. See the
+[Chat contract](../control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md)
+for content-free receipt inspection and interrupted-turn handling.
+When M164 is explicitly enabled, the launcher uses the existing loopback-only
+API-base setting for all Control Center requests and adds the exact validated
+frontend origin to the existing exact-loopback CORS allowlist, including an
+automatically selected local port. No wildcard or non-loopback origin is added.
+The shared Vite/test configuration is unchanged. Without M164, the existing
+relative API and development proxy behavior is retained.
+Changing gateway enablement in either direction requires stopping and
+restarting the launcher-owned backend. `uaa start` reports a blocked state
+when the running gateway posture or frontend origin differs, or older metadata
+cannot prove the posture; it never treats a changed environment as a live
+safe-disable. `uaa stop` retains its existing ownership checks and does not
+stop the separately managed model server.
+
 | Service | URL | Command family |
 |---|---|---|
 | Backend API | `http://127.0.0.1:8000` (default, configurable) | `.venv/bin/python -m uvicorn ultimate_ai_agent.api.app:app` |

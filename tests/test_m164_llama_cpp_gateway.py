@@ -156,6 +156,47 @@ def test_m164_gateway_rejects_exact_prompt_echo() -> None:
         )
 
 
+@pytest.mark.parametrize("reply_mode", [None, False, True, 1, "true"])
+def test_m164_prior_assistant_reply_requires_explicit_internal_mode(reply_mode) -> None:
+    prior_reply = "a" * 12
+    request = M164ChatCompletionRequest(
+        model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
+        messages=[
+            {"role": "user", "content": "u" * 8},
+            {"role": "assistant", "content": prior_reply},
+            {"role": "user", "content": "v" * 8},
+        ],
+    )
+    arguments = {} if reply_mode is None else {"allow_repeated_assistant_reply": reply_mode}
+    if reply_mode is True:
+        response = build_m164_chat_completion_response(
+            request, gateway_model=M164LocalGatewayModel(),
+            transport=FakeM164GatewayTransport(content=prior_reply), **arguments,
+        )
+        assert response["choices"][0]["message"]["content"] == prior_reply
+    else:
+        with pytest.raises(ValueError, match="M164_GATEWAY_PROMPT_ECHO_DENIED"):
+            build_m164_chat_completion_response(
+                request, gateway_model=M164LocalGatewayModel(),
+                transport=FakeM164GatewayTransport(content=prior_reply), **arguments,
+            )
+
+
+@pytest.mark.parametrize("role", ["system", "user"])
+def test_m164_repeat_mode_never_exempts_user_or_system_echo(role) -> None:
+    content = "u" * 8
+    request = M164ChatCompletionRequest(
+        model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
+        messages=[{"role": role, "content": content}],
+    )
+    with pytest.raises(ValueError, match="M164_GATEWAY_PROMPT_ECHO_DENIED"):
+        build_m164_chat_completion_response(
+            request, gateway_model=M164LocalGatewayModel(),
+            transport=FakeM164GatewayTransport(content=content),
+            allow_repeated_assistant_reply=True,
+        )
+
+
 @pytest.mark.parametrize(
     "payload,reason",
     [
@@ -191,6 +232,47 @@ def test_m164_api_models_endpoint_uses_llama_cpp_mode_when_enabled(monkeypatch: 
     assert response.json()["data"][0]["id"] == DEFAULT_UAA_LLAMA_CPP_MODEL_ID
 
 
+def test_m164_namespaced_model_works_through_existing_api_without_alias_substitution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
+    _enable_gateway(monkeypatch)
+    model_id = "qwen/qwen3.8-27b"
+    monkeypatch.setenv("UAA_LLAMA_CPP_MODEL_ID", model_id)
+    transport = FakeM164GatewayTransport(content="y" * 12)
+    monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
+    assert client.get("/v1/models", headers=_headers()).json()["data"][0]["id"] == model_id
+    response = client.post(
+        "/v1/chat/completions", headers=_headers(),
+        json={"model": model_id, "messages": [{"role": "user", "content": "x" * 8}]},
+    )
+    assert response.status_code == 200
+    assert response.json()["model"] == model_id
+    assert response.json()["uaa_safety"]["tools_enabled"] is False
+    assert len(transport.calls) == 1
+    assert transport.calls[0].model == model_id
+    denied = client.post(
+        "/v1/chat/completions", headers=_headers(),
+        json={"model": "different/model", "messages": [{"role": "user", "content": "x" * 8}]},
+    )
+    assert denied.status_code == 422
+    assert len(transport.calls) == 1
+
+
+@pytest.mark.parametrize("model_id", [
+    "/absolute-model", "../model", "namespace/../model", "namespace//model",
+    "namespace/model/extra", "namespace/", "namespace\\model", "https://example.invalid/model",
+    "namespace/model?extra", "namespace/%2fmodel", "namespace/ model", "model\nheader",
+    "C:/model.gguf", "c:/model.gguf", "C:model.gguf", "C:\\model.gguf",
+])
+def test_m164_namespaced_ids_still_reject_paths_and_ambiguous_identifiers(model_id: str) -> None:
+    with pytest.raises(ValueError):
+        M164LocalGatewayModel(model_id=model_id)
+    with pytest.raises(ValueError):
+        M164ChatCompletionRequest(model=model_id, messages=[{"role": "user", "content": "x"}])
+
+
 def test_m164_api_requires_gateway_bearer_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_gateway(monkeypatch)
 
@@ -206,6 +288,90 @@ def test_m164_api_requires_configured_gateway_bearer_when_enabled(monkeypatch: p
     response = client.get("/v1/models", headers={"Authorization": f"Bearer {DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY}"})
 
     assert response.status_code == 401
+
+
+def _control_center_session_headers(monkeypatch, tmp_path, *, expired=False):
+    from datetime import timedelta
+    from ultimate_ai_agent.core.build_identity import build_identity
+    from ultimate_ai_agent.core.control_center.backend_truth import (
+        backend_instance_ref,
+        build_control_center_backend_truth,
+    )
+    from ultimate_ai_agent.core.storage import FounderLoopRepository
+    from ultimate_ai_agent.core.time import utc_now
+
+    _enable_gateway(monkeypatch)
+    monkeypatch.setenv("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "0")
+    monkeypatch.setenv("UAA_API_LOCAL_BEARER", "fixture-control-center-session")
+    monkeypatch.setenv("UAA_BUILD_COMMIT", "7" * 40)
+    truth = build_control_center_backend_truth(
+        repo=FounderLoopRepository(tmp_path / "session-state"),
+        identity=build_identity(),
+        now=utc_now() - timedelta(minutes=10) if expired else None,
+    )
+    return {
+        "Authorization": "Bearer fixture-control-center-session",
+        "X-UAA-Idempotency-Key": "idempotency-ref:m164-session-test",
+        "X-UAA-Control-Center-Mutation-Binding": "backend-truth.v1",
+        "X-UAA-Expected-Backend-Revision-Ref": f"commit-ref:git:{'7' * 40}",
+        "X-UAA-Expected-Backend-Instance-Ref": backend_instance_ref(),
+        "X-UAA-Expected-Backend-Truth-Ref": truth["envelope_integrity_ref"],
+    }
+
+
+def test_m164_control_center_session_uses_distinct_credentials_without_exposing_gateway_key(monkeypatch, tmp_path):
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
+    headers = _control_center_session_headers(monkeypatch, tmp_path)
+    headers["X-UAA-Operator-Confirmed"] = "send-one-local-turn.v1"
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "turn-state"))
+    transport = FakeM164GatewayTransport(content="y" * 12)
+    monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
+    models = client.get("/v1/models", headers=headers)
+    assert models.status_code == 200
+    reply = client.post("/v1/chat/completions", headers=headers, json={
+        "model": DEFAULT_UAA_LLAMA_CPP_MODEL_ID, "messages": [{"role": "user", "content": "x" * 8}],
+    })
+    assert reply.status_code == 200
+    assert len(transport.calls) == 1
+    assert reply.json()["uaa_safety"]["backend_fields_allowlisted"] is True
+    assert M164_TEST_GATEWAY_KEY not in models.text + reply.text
+    assert headers["Authorization"] != _headers()["Authorization"]
+
+
+@pytest.mark.parametrize("invalid", [
+    "missing_binding", "wrong_version", "wrong_instance", "wrong_revision", "wrong_truth",
+    "expired_truth", "wrong_bearer", "missing_gateway_key", "disabled_gateway",
+])
+def test_m164_control_center_session_fails_closed_before_transport(monkeypatch, tmp_path, invalid):
+    import ultimate_ai_agent.core.local_model_management.gateway as gateway_module
+
+    headers = _control_center_session_headers(monkeypatch, tmp_path, expired=invalid == "expired_truth")
+    transport = FakeM164GatewayTransport(content="y" * 12)
+    monkeypatch.setattr(gateway_module, "StdlibM164LlamaCppGatewayTransport", lambda: transport)
+    if invalid == "missing_binding":
+        headers.pop("X-UAA-Control-Center-Mutation-Binding")
+    elif invalid == "wrong_version":
+        headers["X-UAA-Control-Center-Mutation-Binding"] = "backend-truth.v0"
+    elif invalid == "wrong_instance":
+        headers["X-UAA-Expected-Backend-Instance-Ref"] = "backend-instance-ref:other"
+    elif invalid == "wrong_revision":
+        headers["X-UAA-Expected-Backend-Revision-Ref"] = f"commit-ref:git:{'8' * 40}"
+    elif invalid == "wrong_truth":
+        headers["X-UAA-Expected-Backend-Truth-Ref"] = "proof-ref:substituted"
+    elif invalid == "wrong_bearer":
+        headers["Authorization"] = "Bearer wrong-session"
+    elif invalid == "missing_gateway_key":
+        monkeypatch.delenv(UAA_LLAMA_CPP_GATEWAY_KEY_ENV)
+    elif invalid == "disabled_gateway":
+        monkeypatch.setenv(UAA_LLAMA_CPP_GATEWAY_ENV, "0")
+        monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "0")
+    assert client.get("/v1/models", headers=headers).status_code in {401, 403, 409}
+    response = client.post("/v1/chat/completions", headers=headers, json={
+        "model": DEFAULT_UAA_LLAMA_CPP_MODEL_ID, "messages": [{"role": "user", "content": "x" * 8}],
+    })
+    assert response.status_code in {401, 403, 409}
+    assert not transport.calls
 
 
 def test_m164_api_chat_success_uses_typed_request_without_live_backend(monkeypatch: pytest.MonkeyPatch) -> None:

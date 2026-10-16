@@ -27,6 +27,17 @@ beforeEach(() => {
 });
 
 describe("useControlCenterData", () => {
+  it("uses only the Chat read scope for the main composer", async () => {
+    mocked.load.mockResolvedValueOnce(backendData("chat"));
+    const binding = {
+      snapshotRef: "proof-ref:chat:current",
+      backendRevisionRef: "commit-ref:git:revision",
+      backendInstanceRef: "backend-instance-ref:chat:current",
+    };
+    const { result } = renderHook(() => useControlCenterData(true, binding, "chat"));
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(mocked.load).toHaveBeenCalledExactlyOnceWith(binding, "chat");
+  });
   it("does not reload every route read model when only the truth snapshot rotates", async () => {
     mocked.load.mockResolvedValueOnce(backendData("snapshot one"));
     const { result, rerender } = renderHook(

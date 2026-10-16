@@ -47,6 +47,7 @@ import { EmptyState } from "./DataState";
 import { AuthorityMissionInspectionPanel } from "./AuthorityMissionInspectionPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { ChatWorkspacePanel } from "./ChatWorkspacePanel";
+import { LocalConversationPanel } from "./LocalConversationPanel";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 import { TurnRouterDiagnosticsPanel } from "./TurnRouterDiagnosticsPanel";
@@ -247,6 +248,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const [receiptPending, setReceiptPending] = useState(false);
   const [handoffPending, setHandoffPending] = useState<ChatHandoffTarget>();
   const [receiptError, setReceiptError] = useState<string>();
+  const [workspaceDetailsOpen, setWorkspaceDetailsOpen] = useState(false);
   const chatStep = useOperatorStep(data, "uaa_v1_chat");
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const selectedModelId = models.selectedModelId ?? DEFAULT_MODEL_ID;
@@ -270,7 +272,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
 
   useEffect(() => {
     let cancelled = false;
-    void inspectLocalModelsRoute().then((status) => {
+    void inspectLocalModelsRoute(mutationBinding).then((status) => {
       if (!cancelled) {
         setModels(status);
       }
@@ -289,7 +291,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     setChatReceipt(undefined);
     setHandoffReceipt(undefined);
     try {
-      const nextProbe = await requestRedactedLocalChatProbe(selectedModelId);
+      const nextProbe = await requestRedactedLocalChatProbe(selectedModelId, mutationBinding);
       setProbe(nextProbe);
       if (nextProbe.state === "ready") {
         setReceiptPending(true);
@@ -344,16 +346,24 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   }
 
   return (
-    <section className="page-section" aria-labelledby="chat-shell-heading">
+    <section className="chat-operator-surface" aria-label="Chat">
+      <LocalConversationPanel
+        models={models}
+        binding={mutationBinding}
+        onReconnect={() => { void inspectLocalModelsRoute(mutationBinding).then(setModels); }}
+      >
       <OperatorHeader
         eyebrow="Local operator flow"
         headingId="chat-shell-heading"
         heading="Chat Local Operator"
         status={statusLabel(models.state)}
-        summary="Control Center can probe a redacted local turn through UAA /v1, record a durable receipt, and show model, runtime, auth, and tool-denial truth without treating output as authority."
+        summary="Talk to your local model through the authenticated UAA gateway. Conversation text stays transient; tools and external actions remain disabled."
       />
 
-      <ChatWorkspacePanel />
+      <details open={workspaceDetailsOpen} onToggle={(event) => setWorkspaceDetailsOpen(event.currentTarget.open)}>
+        <summary>Content-free draft checkpoints</summary>
+        {workspaceDetailsOpen ? <ChatWorkspacePanel /> : null}
+      </details>
 
       <TurnRouterDiagnosticsPanel />
 
@@ -369,7 +379,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
               models.statusCode ? String(models.statusCode) : "not available",
             ],
             ["Selected model", selectedModelId],
-            ["Visible response content", "no"],
+            ["Probe response content", "not displayed"],
           ]}
           reasonCodes={models.reasonCodes}
         />
@@ -403,7 +413,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
                 : "not bound",
             ],
             ["Exchange body shown", "no"],
-            ["Completion content shown", "no"],
+            ["Probe completion shown", "no"],
             [
               "Duration",
               probe?.durationMs ? `${probe.durationMs} ms` : "not measured",
@@ -700,6 +710,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <OperatorStepStrip steps={[localModelStep, chatStep]} />
       <OperatorSurfaceStates surface="Chat Local Operator" />
+      </LocalConversationPanel>
     </section>
   );
 }

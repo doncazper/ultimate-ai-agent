@@ -2021,7 +2021,7 @@
     {
       "path": "/chat",
       "label": "Chat",
-      "group": "Review",
+      "group": "Founder Loop",
       "ui_status": "local gated",
       "status": "ship",
       "backend_routes": [

@@ -44,6 +44,7 @@ from ultimate_ai_agent.api.idempotency import (
 from ultimate_ai_agent.api.local_auth import (
     LOCAL_API_AUTH_POLICY_REF,
     local_api_auth_failure,
+    local_api_authorized,
 )
 from ultimate_ai_agent.api.manifest import (
     build_api_manifest,
@@ -72,6 +73,11 @@ from ultimate_ai_agent.core.contracts import (
     validate_context_pack,
 )
 from ultimate_ai_agent.core.build_identity import build_identity
+from ultimate_ai_agent.core.chat.local_turn import (
+    LOCAL_TURN_CONFIRMATION,
+    LocalTurnError,
+    send_local_conversation_turn,
+)
 from ultimate_ai_agent.core.control_center.backend_truth import (
     backend_instance_ref,
     backend_truth_envelope_is_current,
@@ -1220,39 +1226,98 @@ def _require_openwebui_local_test_gateway(
 def _require_m164_llama_cpp_gateway(
     authorization: str | None,
     readiness: LocalModelGatewayReadiness | None = None,
-) -> None:
+    control_center_request: Request | None = None,
+) -> bool:
     gateway_readiness = readiness or inspect_local_model_gateway()
     if not gateway_readiness.llama_cpp_gateway_enabled:
         raise HTTPException(
             status_code=403,
             detail="M164 llama.cpp gateway is disabled. Set UAA_LLAMA_CPP_GATEWAY_ENABLED=1 for local runtime use.",
         )
-    if not llama_cpp_gateway_authorized(authorization):
-        raise HTTPException(
-            status_code=401,
-            detail="M164 llama.cpp gateway requires the configured local bearer value.",
-        )
+    # The first-party shell uses its existing local session, never the gateway
+    # or provider secret. This exact M164 lane additionally requires a current
+    # backend-truth envelope; dev auth bypass cannot grant model access.
+    if (
+        control_center_request is not None
+        and gateway_readiness.llama_cpp_bearer_configured
+        and local_api_authorized(authorization)
+    ):
+        headers = control_center_request.headers
+        identity = build_identity()
+        expected_truth = headers.get(_EXPECTED_BACKEND_TRUTH_HEADER, "")
+        if (
+            headers.get(_CONTROL_CENTER_MUTATION_BINDING_HEADER) == _CONTROL_CENTER_MUTATION_BINDING_VERSION
+            and identity.source_revision_bound
+            and headers.get(_EXPECTED_BACKEND_REVISION_HEADER) == identity.commit_ref
+            and headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER) == backend_instance_ref()
+            and _BACKEND_TRUTH_REF_RE.fullmatch(expected_truth) is not None
+            and backend_truth_envelope_is_current(
+                envelope_integrity_ref=expected_truth,
+                backend_revision_ref=identity.commit_ref,
+                expected_backend_instance_ref=backend_instance_ref(),
+            )
+        ):
+            return True
+        raise HTTPException(status_code=409, detail="Local conversation requires current backend provenance.")
+    # Session identity is considered first, including equal-key misconfiguration;
+    # a first-party request cannot opt into the older gateway-key lane.
+    if (
+        llama_cpp_gateway_authorized(authorization)
+        and not local_api_authorized(authorization)
+        and (control_center_request is None or not control_center_request.headers.get(
+            _CONTROL_CENTER_MUTATION_BINDING_HEADER
+        ))
+    ):
+        return False
+    raise HTTPException(
+        status_code=401,
+        detail="M164 llama.cpp gateway requires the configured local bearer value.",
+    )
 
 @app.get("/v1/models")
-def get_v1_models(authorization: str | None = Header(default=None)) -> Response:
+def get_v1_models(http_request: Request, authorization: str | None = Header(default=None)) -> Response:
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
-        _require_m164_llama_cpp_gateway(authorization, readiness)
+        _require_m164_llama_cpp_gateway(authorization, readiness, http_request)
         return build_m164_local_models_response(build_m164_gateway_model_from_env())
     _require_openwebui_local_test_gateway(authorization, readiness)
     return build_openwebui_local_models_response()
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", description=(
+    "Existing M164 compatibility route. First-party local sessions additionally require "
+    "current backend provenance and X-UAA-Operator-Confirmed: send-one-local-turn.v1. "
+    "The Python core captures and validates one exact local approval, durably records "
+    "the attempt before transport, and rejects repeated attempt keys. No raw content "
+    "is persisted. Legacy gateway-key and M151 contracts are unchanged."
+), responses={
+    403: {"description": "Gateway disabled or exact first-party turn confirmation/approval denied."},
+    409: {"description": "Backend binding changed or this local turn was already attempted; never retry automatically."},
+    503: {"description": "Local turn storage unavailable or outcome uncertain; no automatic retry."},
+})
 def post_v1_chat_completions(
     request: V1ChatCompletionAPIRequest,
+    http_request: Request,
     authorization: str | None = Header(default=None),
+    x_uaa_operator_confirmed: str | None = Header(default=None, description=(
+        "First-party Send confirmation: exactly send-one-local-turn.v1; not standing authority."
+    )),
 ) -> Response:
     payload = request.model_dump(mode="json", exclude_none=True)
     readiness = inspect_local_model_gateway()
     if readiness.gateway_mode == "m164_llama_cpp":
-        _require_m164_llama_cpp_gateway(authorization, readiness)
+        first_party = _require_m164_llama_cpp_gateway(authorization, readiness, http_request)
         try:
             local_request = M164ChatCompletionRequest(**payload)
+            if first_party:
+                return send_local_conversation_turn(
+                    local_request,
+                    confirmed=x_uaa_operator_confirmed == LOCAL_TURN_CONFIRMATION,
+                    idempotency_key_ref=(http_request.headers.get("x-uaa-idempotency-key")
+                                         or http_request.headers.get("x-uaa-idempotency-ref", "")),
+                    backend_revision_ref=http_request.headers.get(_EXPECTED_BACKEND_REVISION_HEADER, ""),
+                    expected_backend_instance_ref=http_request.headers.get(_EXPECTED_BACKEND_INSTANCE_HEADER, ""),
+                    gateway_model=build_m164_gateway_model_from_env(),
+                )
             turn_harness_binding = build_chat_turn_harness_binding(
                 local_request.messages,
                 model_ref=local_request.model,
@@ -1263,6 +1328,11 @@ def post_v1_chat_completions(
                 api_key=llama_cpp_backend_api_key(),
                 turn_harness_binding=turn_harness_binding,
             )
+        except LocalTurnError as exc:
+            raise HTTPException(status_code=exc.status_code, detail={
+                "code": exc.code,
+                "safe_message": "The exact local turn was not completed. Do not retry automatically.",
+            }) from None
         except ValueError as exc:
             raise HTTPException(
                 status_code=422,

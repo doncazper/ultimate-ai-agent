@@ -189,7 +189,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 34
+EXPECTED_SCOPED_FRONTEND_POST_HELPERS = 35
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",
@@ -974,6 +974,7 @@ def verify(root: Path = ROOT) -> list[str]:
         post_count = text.count('method: "POST"')
         if post_count != EXPECTED_SCOPED_FRONTEND_POST_HELPERS:
             failures.append("frontend client must declare only scoped POST calls")
+        failures.extend(_local_conversation_boundary_failures(text))
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
         if "API_ENDPOINTS.turnRouterPreview" not in text:
@@ -1268,6 +1269,55 @@ def verify(root: Path = ROOT) -> list[str]:
         for match in URL_CREDENTIALS.finditer(text):
             failures.append(f"forbidden URL credentials in {vite_config.relative_to(root)}: {match.group(0)}")
 
+    return failures
+
+
+def _local_conversation_boundary_failures(text: str) -> list[str]:
+    # Bind the new ordinary-chat lane itself, not matching guards elsewhere.
+    from ultimate_ai_agent.core.gate.legacy_check_families.part_003 import (
+        _compact_typescript,
+        _typescript_function_body,
+    )
+
+    body = _typescript_function_body(text, "requestLocalConversationTurn")
+    if body is None:
+        return ["frontend local conversation helper missing or ambiguous"]
+    compact = _compact_typescript(body)
+    required = (
+        "!API_BASE_POLICY.allowed||!localApiBearerForRequest()||!binding",
+        'fetch(API_BASE_POLICY.baseUrl+API_ENDPOINTS.localChatCompletions,{method:"POST"',
+        "headers:withBackendTruthMutationHeaders(withLocalApiAuthHeaders({",
+        "}),binding),body:JSON.stringify(",
+        '"X-UAA-Idempotency-Key":',
+        '"X-UAA-Operator-Confirmed":"send-one-local-turn.v1"',
+        "crypto.randomUUID()",
+        "constsubmittedMessages=messages.map(({role,content})=>({role,content}))",
+        "messages:submittedMessages",
+        "validateBackendResponseBinding(response.headers,binding)",
+        "messages.length>LOCAL_CONVERSATION_MESSAGE_LIMIT",
+        "LOCAL_CONVERSATION_CHARACTER_LIMIT",
+        "max_tokens:1024,stream:false",
+        "record.model!==modelId||safety.model!==modelId",
+        "safety.message_count!==submittedMessages.length",
+        "safety.loopback_forward_performed!==true",
+        'approval.contract_ref!=="contract-ref:chat-explicit-local-turn:v1"',
+        "approval.idempotency_key_ref!==idempotencyKey",
+        'approval.status!=="completed"',
+        "approval.exact_approval_validated!==true",
+        "approval.durable_start_recorded!==true",
+        "approval.raw_content_persisted!==false",
+        "safety.backend_fields_allowlisted!==true",
+        '"tools_enabled","functions_enabled","streaming_enabled","raw_prompt_logged",'
+        '"memory_written","context_injected","production_authority_granted"',
+        ".every((key)=>safety[key]===false)",
+    )
+    failures = [
+        f"frontend local conversation boundary missing: {fragment}"
+        for fragment in required
+        if compact.count(fragment) != 1
+    ]
+    if compact.count("fetch(") != 1 or compact.count('method:"POST"') != 1:
+        failures.append("frontend local conversation requires exactly one explicit POST")
     return failures
 
 

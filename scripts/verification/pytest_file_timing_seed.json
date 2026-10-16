@@ -441,6 +441,11 @@
       "source": "shard-elapsed-fallback"
     },
     {
+      "path": "tests/test_chat_exact_local_turn.py",
+      "seconds": 9.05,
+      "source": "operator-supplied-advisory"
+    },
+    {
       "path": "tests/test_chat_to_loop_handoff_v1.py",
       "seconds": 6.81,
       "source": "pytest-duration-summary"
