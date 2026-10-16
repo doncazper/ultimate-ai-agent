@@ -1,9 +1,9 @@
 {
   "advisory_only": true,
-  "declared_source_run_status": "green",
+  "declared_source_run_status": "completed_with_failures",
   "schema_version": "uaa_pytest_file_timings.v1",
   "source_run_status_attestation": "operator_supplied_advisory",
-  "timed_file_count": 1040,
+  "timed_file_count": 1041,
   "timings": [
     {
       "path": "tests/test_a2a_adapter_boundaries.py",
@@ -1929,6 +1929,11 @@
       "path": "tests/test_inspectable_extension_catalog.py",
       "seconds": 0.13,
       "source": "pytest-duration-summary"
+    },
+    {
+      "path": "tests/test_isolated_collection_observation.py",
+      "seconds": 42.87,
+      "source": "historical-pytest-duration-summary"
     },
     {
       "path": "tests/test_kernel_api_routes.py",

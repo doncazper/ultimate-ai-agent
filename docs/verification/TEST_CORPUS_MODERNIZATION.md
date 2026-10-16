@@ -498,6 +498,84 @@ The durable result stores only repository code metadata, counts, and hashes.
 It does not store raw test output, application payloads, prompts, responses,
 credentials, host identity, or local paths.
 
+## Isolated Collection Observation Prerequisite
+
+`scripts/verify_isolated_collection_observation.py` is a separately scoped,
+supplemental diagnostic. It does not replace or loosen the source-only corpus
+guard, accept a retirement, unblock Finance, or qualify a merge. In particular,
+`observed_equal` always carries `acceptance_authority: false`. A matching
+collection in one controlled environment is not universal Python equivalence,
+proof that changed callbacks are dormant, or evidence that test bodies passed.
+
+The initial executor is macOS-only. It requires the host's `sandbox-exec`
+facility and never falls back to an ordinary subprocess. This deprecated macOS
+facility is used only for a local verification experiment; it is not an app
+sandbox or a portable production isolation claim. Linux and Windows report
+isolation unavailable until their own executor is separately implemented and
+verified. The exact reviewed OS loader bootstrap profile is hash-bound; changed
+OS bootstrap rules also refuse execution until separately reviewed. The
+canonical hosted CI and test runner remain unchanged.
+Framework Python builds use their runtime-bound application interpreter
+directly, not the launcher that re-executes another binary. The policy still
+permits only that one exact executable; a missing, non-file, or escaping
+framework interpreter refuses execution without a launcher fallback. The
+selected interpreter identity is included in the runtime binding.
+
+For each side the parent freezes `src`, `tests`, `scripts`, `pyproject.toml`
+and `uv.lock` into private temporary inputs. It binds the interpreter/runtime
+and actual installed dependency bytes, not just package version labels. All
+test source and the two manifests must match across the pair. A fresh
+`-I -B -S` Python process requests collection only: no site startup, `.pth`
+execution, pytest plugin auto-discovery, or Pydantic plugin discovery. The
+explicit observer and repository conftest code still run during collection.
+Module initialization is executable code, not a claim that no arbitrary
+callable runs. The probe never requests pytest's test-body execution phase.
+The OS policy denies network, process forking, host-private file reads and
+source writes. Writes are limited to one bounded observation file and a fresh,
+run-owned cache directory for existing import-time caches; no cache is reused.
+Directory-only ancestor inspection supports their existing ACL checks without
+granting reads of sibling files. The worker retains CPU, wall-time and per-file
+size limits; this is not a disk-quota or adversarial resource-exhaustion sandbox.
+No ambient
+environment, credentials, Keychain, model endpoint or provider client is
+supplied. The OS and system libraries remain trusted; same-user compromise
+and kernel/native-code sandbox escape are not attested against.
+
+The result contains source/environment/harness/selection hashes, ordered
+hashed item identity, counts, and observed complete model counts. Raw child
+stdout/stderr are discarded. Missing or duplicate items, collection errors,
+skips, deselection, disabling marks, missing model construction, changed
+retained builtins, malformed output, timeouts and source/environment drift
+refuse the observation. Startup failures report `isolated_run_unavailable`,
+timeouts report `isolated_run_timeout`, and nonzero exits report
+`isolated_run_failed`. Missing, unreadable or changing worker output reports
+`observation_unavailable`; unsafe output-file metadata reports
+`observation_unsafe`. These worker-result failures do not blame host source
+inputs. Valid output still undergoes the same schema and collection checks.
+An inactive `skipif` mark is represented only when its
+already-materialized conditions are exact false booleans and its bounded reason
+is a string. Its full posture is hashed in collection order; strings, arbitrary
+objects, missing conditions and unsupported mark shapes are never evaluated or
+treated as inactive. Worker output is still untrusted: parsing it does
+not turn it into independent acceptance evidence. Installing dependencies,
+executing test bodies, integrating an alternative corpus proof, and treating
+the prepared Finance projection as accepted remain outside this first unit.
+
+Run the explicit inspection command with two prepared source directories,
+one or more `--test tests/test_example.py` selectors, and one or more
+`--model-module ultimate_ai_agent.example` names. Model names are presence
+checks, not additional imports. Exit zero means only an equal observation;
+exit one means observed difference, and exit two means unavailable/refused.
+Safe disable is to stop invoking this standalone command; no app or canonical
+verification behavior depends on it. Focused coverage is in
+`tests/test_isolated_collection_observation.py`; the real isolation and model
+construction cases require macOS and are explicitly skipped elsewhere.
+Separate real-host prerequisite tests identify an unreviewed OS bootstrap
+policy, unsupported interpreter layout, runtime/dependency census refusal, or
+isolated interpreter startup failure using only stable test references in
+hosted diagnostics. They do not skip a failed prerequisite on macOS, grant
+additional sandbox permissions, or replace the end-to-end isolation cases.
+
 ## Later Phase Rules
 
 - Fixture deduplication must preserve assertion and failure-mode equivalence.
