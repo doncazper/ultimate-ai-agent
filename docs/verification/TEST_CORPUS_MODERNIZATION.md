@@ -83,6 +83,23 @@ pytest hook dispatch/retrieval. Ordinary qualified operations such as regular
 expression compilation do not acquire builtin execution authority by spelling.
 Library compiler factories and member-reflection getters share the same
 module-member registry across direct imports, aliases and reflected selection.
+Executable-data loaders (including pickle/native pickle, marshal, shelve and
+unsafe YAML constructors) retain their source-qualified capability; ordinary
+JSON loaders and safe YAML loading do not inherit it by member spelling.
+Test-result writers and lifecycle state also retain abort-sensitive identity.
+Shared environment writes, mutator captures and unproved mapping escapes refuse
+new-source normalization: one test can otherwise change whether another runs.
+Closed reads and fresh flat environment copies remain admissible. Lexical aliases
+retain the shared mapping owner, while local/formal shadowing does not invent it.
+Imported copy helpers require one source-owned producer; a retained import fact
+cannot certify a rebound callable as read-only. Explicit loader submodules share
+the executable-data boundary. Known process-wide directory, tracing, warning and
+import-state capabilities, and writes or mutator captures through imported
+objects, retain the same conservative posture. Live nested state is not made
+private by a shallow copy. These checks cover represented source forms and do
+not attest to arbitrary effects inside unrepresented external libraries.
+Collection-inert dormant writers are still unproved runtime capabilities; this
+does not claim that an uncalled body executed or establish general Python purity.
 Consumer matching strips only terminal generated fingerprint metadata while
 preserving occurrence suffixes and literal hash characters inside test paths.
 Direct and reflected namespace-property selection share the same classification;

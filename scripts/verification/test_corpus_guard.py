@@ -485,19 +485,55 @@ PYTHON_RUNTIME_ABORT_MODULES = frozenset({"pytest", "_pytest", "unittest"})
 PYTHON_OPERATOR_NAMESPACES = frozenset({"operator", "_operator"})
 PYTHON_DYNAMIC_EXECUTION_BUILTINS = frozenset({"exec", "eval", "compile"})
 PYTHON_EXECUTABLE_CODE_CONSTRUCTORS = frozenset({"FunctionType", "LambdaType", "CodeType"})
+PYTHON_TEST_RESULT_ATTRIBUTES = frozenset(
+    {
+        "_outcome", "addSkip", "addExpectedFailure", "addSuccess", "addFailure",
+        "addError", "addUnexpectedSuccess", "addSubTest",
+    }
+)
 PYTHON_OPAQUE_RUNTIME_ATTRIBUTES = frozenset(
     {
         "getfixturevalue", "ihook", "subset_hook_caller", "get_hookcallers",
         "__code__", "f_code", "gi_code", "cr_code", "ag_code",
         *PYTHON_EXECUTABLE_CODE_CONSTRUCTORS,
+        *PYTHON_TEST_RESULT_ATTRIBUTES,
     }
 )
+# These ordinary member spellings are capabilities only with proven module
+# provenance. In particular, JSON and application load/loads methods are not
+# executable-data decoders merely because they share a name.
+PYTHON_QUALIFIED_RUNTIME_MODULE_MEMBERS = {
+    "pickle": frozenset({"load", "loads", "Unpickler", "_load", "_loads", "_Unpickler"}),
+    "_pickle": frozenset({"load", "loads", "Unpickler"}),
+    "marshal": frozenset({"load", "loads"}),
+    "shelve": frozenset({"open", "Shelf", "BsdDbShelf", "DbfilenameShelf"}),
+    "yaml": frozenset({
+        "load", "load_all", "unsafe_load", "unsafe_load_all",
+        "Loader", "UnsafeLoader", "CLoader", "CUnsafeLoader",
+    }),
+    "yaml.loader": frozenset({"Loader", "UnsafeLoader"}),
+    "yaml.cyaml": frozenset({"CLoader", "CUnsafeLoader"}),
+    "yaml.constructor": frozenset({"Constructor", "UnsafeConstructor"}),
+    "os": frozenset({"putenv", "unsetenv", "chdir", "fchdir", "umask"}),
+    "sys": frozenset({"settrace", "setprofile", "setrecursionlimit", "setswitchinterval"}),
+    "warnings": frozenset({"filterwarnings", "simplefilter", "resetwarnings"}),
+}
+PYTHON_SHARED_RUNTIME_MEMBERS = {
+    "sys": frozenset({"path", "meta_path", "path_hooks", "path_importer_cache", "argv", "warnoptions"}),
+    "warnings": frozenset({"filters", "onceregistry", "_onceregistry", "defaultaction"}),
+}
+PYTHON_SHARED_RUNTIME_MUTATORS = frozenset({
+    *GLOBALS_NAMESPACE_MUTATOR_METHODS, "append", "extend", "insert", "remove",
+    "reverse", "sort", "add", "discard", "difference_update",
+    "intersection_update", "symmetric_difference_update",
+})
 PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS = {
     "builtins": frozenset({"vars", *PYTHON_DYNAMIC_EXECUTION_BUILTINS}),
     "types": PYTHON_EXECUTABLE_CODE_CONSTRUCTORS,
     "codeop": frozenset({"Compile", "CommandCompiler", "compile_command", "_compile", "_maybe_compile"}),
     "inspect": frozenset({"getmembers", "getmembers_static", "getattr_static", "_getmembers"}),
     **{namespace: frozenset({"attrgetter", "methodcaller"}) for namespace in PYTHON_OPERATOR_NAMESPACES},
+    **PYTHON_QUALIFIED_RUNTIME_MODULE_MEMBERS,
 }
 PYTHON_CAPABILITY_NAMESPACES = frozenset(
     {"sys", "importlib", *PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS}
@@ -2635,7 +2671,8 @@ def _python_new_getter_selection_is_unsafe(
     unsafe_selectors = {
         *PYTHON_RUNTIME_NAMESPACE_ATTRIBUTES,
         *PYTHON_OPAQUE_RUNTIME_ATTRIBUTES,
-        *(member for members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.values() for member in members),
+        *(member for namespace, members in PYTHON_OPAQUE_RUNTIME_MODULE_MEMBERS.items()
+          if namespace not in PYTHON_QUALIFIED_RUNTIME_MODULE_MEMBERS for member in members),
         "skipTest", "__getattribute__", "__getattr__",
     }
     selector_limit = max(map(len, unsafe_selectors))
@@ -2978,6 +3015,19 @@ def _python_capability_projection(
                 projected_imports[target] = tuple(dict.fromkeys((*projected_imports.get(target, ()), *imports.get(name, ()))))
     for alias, target in import_alias_names:
         alias.asname = target
+    # An imported copy helper is a positive proof only while its binding has
+    # exactly one producer. Merely retaining a possible builtins import cannot
+    # justify a later call after assignment, function redefinition or rebinding.
+    stable_builtin_imports = set()
+    for owner, scope in scopes.items():
+        for name, events in scope["bindings"].items():
+            unique = {id(event): event for event in events}
+            if len(unique) != 1:
+                continue
+            event = next(iter(unique.values()))
+            if isinstance(event, ast.ImportFrom) and event.module == "builtins" and not event.level:
+                stable_builtin_imports.add(symbol(owner, name))
+    setattr(projected[root], "_uaa_stable_builtin_imports", frozenset(stable_builtin_imports))
     result = projected, projected_imports
     cache[cache_key] = result
     return result
@@ -3189,6 +3239,124 @@ def _python_dynamic_namespace_values_projected(
     return frozenset(value for kind, value in known if kind == "expression" and isinstance(value, int))
 
 
+def _python_shared_process_effects_projected(
+    nodes: tuple[ast.AST, ...],
+    imported_modules: dict[str, tuple[str, ...]],
+    stable_builtin_imports: frozenset[str],
+) -> frozenset[int]:
+    """Retain source-owned process state and prove closed environment reads.
+
+    A simple alias preserves the mapping's owner. Other escapes (containers,
+    callbacks, returns and captured methods) cannot prove that later users
+    will not mutate shared test state. This is not an interpreter or a claim
+    that every dormant body executes.
+    """
+
+    aliases: dict[str, set[str]] = {}
+    assignments: list[tuple[ast.AST, tuple[ast.AST, ...]]] = []
+    for node in nodes:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) or node.value is None:
+            continue
+        targets = tuple(node.targets) if isinstance(node, ast.Assign) else (node.target,)
+        assignments.append((node.value, targets))
+        if isinstance(node.value, ast.Name):
+            aliases.setdefault(node.value.id, set()).update(
+                target.id for target in targets if isinstance(target, ast.Name)
+            )
+    namespaces = _python_propagated_namespace_aliases(
+        {name: set(candidates) for name, candidates in imported_modules.items()},
+        aliases,
+    )
+    shared: dict[str, set[str]] = {}
+    opaque_members = {
+        f"{module}.{member}"
+        for module, members in PYTHON_SHARED_RUNTIME_MEMBERS.items() for member in members
+    }
+    for name, candidates in imported_modules.items():
+        if {"os.environ", "os.environb"}.intersection(candidates):
+            shared.setdefault(name, set()).add("environment")
+        if opaque_members.intersection(candidates):
+            shared.setdefault(name, set()).add("opaque")
+
+    def attribute_kinds(node: ast.AST) -> set[str]:
+        if not isinstance(node, ast.Attribute) or not isinstance(node.value, ast.Name):
+            return set()
+        owners = namespaces.get(node.value.id, set())
+        kinds = set()
+        if "os" in owners and node.attr in {"environ", "environb"}:
+            kinds.add("environment")
+        if any(module in owners and node.attr in members for module, members in PYTHON_SHARED_RUNTIME_MEMBERS.items()):
+            kinds.add("opaque")
+        return kinds
+
+    for value, targets in assignments:
+        if kinds := attribute_kinds(value):
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    shared.setdefault(target.id, set()).update(kinds)
+    shared = _python_propagated_namespace_aliases(shared, aliases)
+    parents = {id(child): node for node in nodes for child in ast.iter_child_nodes(node)}
+    unsafe: set[int] = set()
+    copy_read_builtins = {"dict", "list", "tuple", "set", "frozenset", "sorted", "len", "bool"}
+    for node in nodes:
+        if isinstance(node, (ast.Attribute, ast.Subscript)):
+            receiver = node.value
+            while isinstance(receiver, (ast.Attribute, ast.Subscript)):
+                receiver = receiver.value
+            if isinstance(receiver, ast.Name) and receiver.id in namespaces and (
+                isinstance(node.ctx, (ast.Store, ast.Del))
+                or (isinstance(node, ast.Attribute) and node.attr in PYTHON_SHARED_RUNTIME_MUTATORS)
+            ):
+                unsafe.add(id(node))
+        kinds = attribute_kinds(node)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            kinds.update(shared.get(node.id, ()))
+        if not kinds:
+            continue
+        parent = parents.get(id(node))
+        if kinds != {"environment"}:
+            # Import machinery and warning policy can contain live mutable
+            # objects. A shallow copy or lookup is not an ownership transfer.
+            unsafe.add(id(node))
+            continue
+        if isinstance(parent, ast.Subscript) and parent.value is node and isinstance(parent.ctx, ast.Load):
+            # Environment entries are strings, not carried mapping references.
+            continue
+        if isinstance(parent, (ast.Assign, ast.AnnAssign, ast.NamedExpr)) and parent.value is node:
+            targets = parent.targets if isinstance(parent, ast.Assign) else (parent.target,)
+            if all(isinstance(target, ast.Name) and shared.get(target.id) == {"environment"} for target in targets):
+                continue
+        if isinstance(parent, ast.Attribute) and parent.value is node:
+            call = parents.get(id(parent))
+            arities = {"get": {1, 2}, "__getitem__": {1}, "__contains__": {1},
+                       "copy": {0}, "keys": {0}, "values": {0}, "items": {0}}
+            if (
+                isinstance(call, ast.Call) and call.func is parent
+                and parent.attr in arities and len(call.args) in arities[parent.attr]
+                and not call.keywords and not any(isinstance(arg, ast.Starred) for arg in call.args)
+            ):
+                continue
+        if isinstance(parent, ast.Call) and parent.args == [node] and not parent.keywords:
+            function = parent.func
+            if isinstance(function, ast.Name) and (
+                function.id in copy_read_builtins
+                or (
+                    function.id in stable_builtin_imports
+                    and any(f"builtins.{name}" in imported_modules.get(function.id, ()) for name in copy_read_builtins)
+                )
+            ):
+                continue
+        if (
+            isinstance(parent, ast.Compare) and len(parent.ops) == 1
+            and parent.comparators == [node] and isinstance(parent.ops[0], (ast.In, ast.NotIn))
+        ):
+            continue
+        if isinstance(parent, (ast.If, ast.While, ast.IfExp)) and parent.test is node:
+            continue
+        unsafe.add(id(node))
+    return frozenset(unsafe)
+
+
 def _python_new_getter_uses_are_unsafe(
     tree: ast.AST,
     imported_modules: dict[str, tuple[str, ...]],
@@ -3198,6 +3366,16 @@ def _python_new_getter_uses_are_unsafe(
     projected, imports = _python_capability_projection(tree, imported_modules)
     if id(tree) not in projected:
         raise TestCorpusGuardError("dynamic runtime namespace access cannot be inventoried safely")
+    source = projected[id(getattr(tree, "_uaa_capability_source", tree))]
+    effects = getattr(source, "_uaa_shared_process_effects", None)
+    if effects is None:
+        effects = _python_shared_process_effects_projected(
+            tuple(ast.walk(source)), imports,
+            getattr(source, "_uaa_stable_builtin_imports", frozenset()),
+        )
+        setattr(source, "_uaa_shared_process_effects", effects)
+    if any(id(node) in effects for node in ast.walk(projected[id(tree)])):
+        return True
     return _python_new_getter_uses_are_unsafe_projected(projected[id(tree)], imports)
 
 
@@ -3208,6 +3386,9 @@ def _python_new_getter_uses_are_unsafe_projected(
     """Allow only proved selector calls and finite aliases in new subjects."""
 
     nodes = tuple(ast.walk(tree))
+    if any(isinstance(node, ast.Attribute) and node.attr in PYTHON_TEST_RESULT_ATTRIBUTES for node in nodes):
+        # Result/lifecycle writes remain capabilities even in Store/Del context.
+        return True
     if any(
         isinstance(node, ast.ImportFrom)
         and any(alias.name == "*" for alias in node.names)

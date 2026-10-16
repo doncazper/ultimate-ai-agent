@@ -3863,7 +3863,21 @@ def test_inert_collection_sources_retain_actual_runtime_admission(
     assert guard.removed_declarations(
         tmp_path, BASE_SHA, worktree_snapshot=inventory
     ) == ()
-    _assert_harmless_runtime_subject_admitted(child, False)
+    # Both sources remain inert during collection, and this consumer does not
+    # call the dormant writer. Collection neutrality alone cannot certify the
+    # whole new source for runtime normalization, however.
+    assert guard._python_collection_construction_is_inert(ast.parse(child))
+    if "def dormant" in child:
+        assert _admit_source_graph(
+            {"ultimate_ai_agent.subject": "def runtime_value(): return 1\n"},
+            {
+                "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+                "ultimate_ai_agent.new_child": child,
+            },
+            ("ultimate_ai_agent.subject",),
+        ) == {}
+    else:
+        _assert_harmless_runtime_subject_admitted(child, False)
 
 
 @pytest.mark.parametrize("mutable_capture", [False, True], ids=["member-snapshot", "mutable-object"])
@@ -4136,6 +4150,259 @@ def test_proven_inert_lookup_and_iteration_retain_actual_admission(
     assert guard.removed_declarations(
         tmp_path, BASE_SHA, worktree_snapshot=inventory
     ) == ()
+
+
+def _assert_new_effect_capability_retained(
+    root: Path, monkeypatch: pytest.MonkeyPatch, child: str,
+    nested: bool, snapshot: bool,
+) -> None:
+    baseline = "def runtime_value(case): return 1\n"
+    current = {
+        "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+        "ultimate_ai_agent.new_child": child,
+    }
+    additions = {CHILD_PATH: child}
+    if nested:
+        current["ultimate_ai_agent.new_grandchild"] = child
+        current["ultimate_ai_agent.new_child"] = "from ultimate_ai_agent.new_grandchild import runtime_value\n"
+        additions = {CHILD_PATH: current["ultimate_ai_agent.new_child"], GRANDCHILD_PATH: child}
+    _install_subject(
+        root, monkeypatch, _capability_review_consumer_source(False),
+        base_subject=baseline, additions=additions,
+    )
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": baseline}, current, ("ultimate_ai_agent.subject",),
+    ) == {}
+    _assert_capability_review_retirement(root, snapshot, False)
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param("import pickle\ndef runtime_value(case): return pickle.loads(b\"c_pytest.outcomes\\nskip\\n(S'unavailable'\\ntR.\")\n", id="pickle-payload"),
+        pytest.param("from pickle import loads as restore\ndef runtime_value(case): return restore(case)\n", id="imported-loads"),
+        pytest.param("import pickle\nlibrary = pickle\ndef runtime_value(case): return library.load(case)\n", id="module-alias"),
+        pytest.param("import pickle\ndef runtime_value(case):\n    restore = pickle.loads\n    return restore(case)\n", id="callable-alias"),
+        pytest.param("import pickle\ndef runtime_value(case): return getattr(pickle, 'lo' + 'ads')(case)\n", id="reflected-loader"),
+        pytest.param("import importlib\ndef runtime_value(case): return importlib.import_module('pickle').loads(case)\n", id="dynamic-loader"),
+        pytest.param("import _pickle\ndef runtime_value(case): return _pickle.loads(case)\n", id="native-loader"),
+        pytest.param("import pickle\ndef runtime_value(case): return pickle._loads(case)\n", id="python-loader"),
+        pytest.param("from pickle import Unpickler as Restore\ndef runtime_value(case): return Restore(case).load()\n", id="unpickler"),
+        pytest.param("import pickle\ndef runtime_value(case): return pickle._Unpickler(case).load()\n", id="python-unpickler"),
+        pytest.param("import shelve\ndef runtime_value(case): return shelve.Shelf(case)['entry']\n", id="shelf-decoder"),
+        pytest.param("import yaml\ndef runtime_value(case): return yaml.unsafe_load(case)\n", id="yaml-unsafe"),
+        pytest.param("import yaml\ndef runtime_value(case): return yaml.load(case, Loader=yaml.UnsafeLoader)\n", id="yaml-constructor"),
+        pytest.param("import marshal\ndef runtime_value(case): return marshal.loads(case)\n", id="serialized-code"),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_executable_data_loaders_cannot_erase_retained_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    child: str, nested: bool, snapshot: bool,
+) -> None:
+    _assert_new_effect_capability_retained(tmp_path, monkeypatch, child, nested, snapshot)
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param("def runtime_value(case):\n    case._outcome.result.addSkip(case, 'unavailable')\n    return 1\n", id="direct-result-skip"),
+        pytest.param("def runtime_value(case):\n    result = case._outcome.result\n    report = result.addSkip\n    report(case, 'unavailable')\n    return 1\n", id="captured-result-writer"),
+        pytest.param("def runtime_value(case):\n    getattr(case._outcome.result, 'add' + 'Skip')(case, 'unavailable')\n    return 1\n", id="reflected-result-writer"),
+        pytest.param("def runtime_value(case):\n    getattr(case, '_out' + 'come').expecting_failure = True\n    return 1\n", id="reflected-lifecycle"),
+        pytest.param("def runtime_value(case):\n    case._outcome.expecting_failure = True\n    return 1\n", id="lifecycle-mutation"),
+        pytest.param("def runtime_value(result): return result.addSkip(None, 'unavailable')\n", id="passed-result-writer"),
+        pytest.param("def runtime_value(result): return result.addExpectedFailure(None, None)\n", id="expected-failure-writer"),
+        pytest.param("def runtime_value(result): return getattr(result, 'add' + 'ExpectedFailure')(None, None)\n", id="reflected-expected-failure"),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_result_and_lifecycle_writers_cannot_erase_retained_test(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    child: str, nested: bool, snapshot: bool,
+) -> None:
+    _assert_new_effect_capability_retained(tmp_path, monkeypatch, child, nested, snapshot)
+
+
+@pytest.mark.parametrize(
+    ("prefix", "body"),
+    [
+        pytest.param("import os\n", "os.environ['UAA_PROBE'] = '1'", id="direct-write"),
+        pytest.param("from os import environ as environment\n", "environment['UAA_PROBE'] = '1'", id="imported-mapping"),
+        pytest.param("import os\n", "environment = os.environ\n    environment['UAA_PROBE'] = '1'", id="mapping-alias"),
+        pytest.param("import os\n", "library = os\n    library.environ['UAA_PROBE'] = '1'", id="module-alias"),
+        pytest.param("import os\n", "os.environ['UAA_PROBE'] += '1'", id="augmented-write"),
+        pytest.param("import os\n", "del os.environ['UAA_PROBE']", id="delete"),
+        pytest.param("import os\n", "os.environ.update({'UAA_PROBE': '1'})", id="update"),
+        pytest.param("import os\n", "write = os.environ.__setitem__\n    write('UAA_PROBE', '1')", id="captured-mutator"),
+        pytest.param("import os\n", "selected = [os.environ][0]\n    selected['UAA_PROBE'] = '1'", id="container-escape"),
+        pytest.param("import os\ndef environment(): return os.environ\n", "environment()['UAA_PROBE'] = '1'", id="returned-mapping"),
+        pytest.param("import os\n", "os.environ.get('missing', os.environ)['UAA_PROBE'] = '1'", id="mapping-default"),
+        pytest.param("import os\n", "os.environb[b'UAA_PROBE'] = b'1'", id="bytes-mapping"),
+        pytest.param("import os\n", "getattr(os, 'environ')['UAA_PROBE'] = '1'", id="reflected-mapping"),
+        pytest.param("import os\n", "os.putenv('UAA_PROBE', '1')", id="putenv"),
+        pytest.param("from os import unsetenv as remove\n", "remove('UAA_PROBE')", id="imported-unsetenv"),
+    ],
+)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_shared_environment_effects_cannot_erase_cross_test_dependency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    prefix: str, body: str, snapshot: bool,
+) -> None:
+    child = prefix + "def runtime_value():\n    " + body + "\n    return 1\n"
+    source = (
+        "import os\nimport pytest\n"
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_a(): assert runtime_value() == 1\n"
+        "def test_b():\n"
+        "    if os.environ.get('UAA_PROBE'): pytest.skip('unavailable')\n"
+        "    assert True\n"
+    )
+    _install_subject(tmp_path, monkeypatch, source, additions={CHILD_PATH: child})
+    assert _admit_source_graph(
+        {"ultimate_ai_agent.subject": "def runtime_value(): return 1\n"},
+        {
+            "ultimate_ai_agent.subject": "from ultimate_ai_agent.new_child import runtime_value\n",
+            "ultimate_ai_agent.new_child": child,
+        },
+        ("ultimate_ai_agent.subject",),
+    ) == {}
+    try:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        removed = guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory)
+    except guard.TestCorpusGuardError as error:
+        assert str(error) == "dynamic runtime namespace access cannot be inventoried safely"
+    else:
+        assert any(ref.split("::")[:2] == [TEST_PATH, "test_a"] for ref in removed)
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param("import os\ndef runtime_value(case): return os.getenv('UAA_PROBE')\n", id="getenv"),
+        pytest.param("import os\ndef runtime_value(case): return os.environ.get('UAA_PROBE', '')\n", id="mapping-read"),
+        pytest.param("from os import environ as environment\ndef runtime_value(case): return environment['UAA_PROBE']\n", id="imported-read"),
+        pytest.param("import os\ndef runtime_value(case):\n    environment = os.environ\n    return environment.get('UAA_PROBE')\n", id="aliased-read"),
+        pytest.param("import os\ndef runtime_value(case):\n    environment = os.environ.copy()\n    environment['UAA_PROBE'] = 'local'\n    return environment\n", id="mapping-copy"),
+        pytest.param("import os\ndef runtime_value(case):\n    environment = dict(os.environ)\n    environment['UAA_PROBE'] = 'local'\n    return environment\n", id="dict-copy"),
+        pytest.param("def runtime_value(case):\n    environment = {}\n    environment['UAA_PROBE'] = 'local'\n    return environment\n", id="owned-data"),
+        pytest.param("import os\ndef local(os): os.environ['UAA_PROBE'] = 'local'\ndef runtime_value(case): return 1\n", id="shadowed-module"),
+        pytest.param("from os import environ\ndef local(environ): environ['UAA_PROBE'] = 'local'\ndef runtime_value(case): return 1\n", id="shadowed-mapping"),
+        pytest.param("import json\ndef runtime_value(case): return json.loads('{}')\n", id="json-loader"),
+        pytest.param("import json\ndef runtime_value(case): return getattr(json, 'lo' + 'ads')('{}')\n", id="reflected-json-loader"),
+        pytest.param("import yaml\ndef runtime_value(case): return yaml.safe_load('{}')\n", id="safe-yaml"),
+        pytest.param("def runtime_value(case): return case.loads('{}')\n", id="ordinary-loads"),
+        pytest.param("def runtime_value(case): return getattr(case, 'load')()\n", id="ordinary-reflected-load"),
+    ],
+)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_effect_boundary_preserves_readers_and_owned_copies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child: str, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value(None) == 1\n",
+        base_subject="def runtime_value(case): return 1\n", additions={CHILD_PATH: child},
+    )
+    _assert_harmless_runtime_subject_admitted(child, False)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory) == ()
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param(
+            "import os\nfrom builtins import dict as clone\n"
+            "def writer(value): value['UAA_PROBE'] = '1'\nclone = writer\n"
+            "def runtime_value(case): clone(os.environ); return 1\n",
+            id="rebound-copy-import",
+        ),
+        pytest.param(
+            "import os\nfrom builtins import dict as clone\n"
+            "def clone(value): value['UAA_PROBE'] = '1'\n"
+            "def runtime_value(case): clone(os.environ); return 1\n",
+            id="redefined-copy-import",
+        ),
+        pytest.param(
+            "from yaml.loader import UnsafeLoader\n"
+            "def runtime_value(case): return UnsafeLoader(case).get_data()\n",
+            id="yaml-loader-submodule",
+        ),
+        pytest.param(
+            "from yaml.cyaml import CUnsafeLoader\n"
+            "def runtime_value(case): return CUnsafeLoader(case).get_data()\n",
+            id="yaml-native-loader-submodule",
+        ),
+        pytest.param("import os\ndef runtime_value(case): os.chdir('fixture'); return 1\n", id="cwd-writer"),
+        pytest.param("from os import fchdir\ndef runtime_value(case): fchdir(case); return 1\n", id="imported-cwd-writer"),
+        pytest.param("import sys\ndef runtime_value(case): sys.path.clear(); return 1\n", id="search-path-writer"),
+        pytest.param("import sys\ndef runtime_value(case): sys.meta_path.clear(); return 1\n", id="import-hooks-writer"),
+        pytest.param("from sys import path\ndef runtime_value(case): path.clear(); return 1\n", id="imported-search-path"),
+        pytest.param("import warnings\ndef runtime_value(case): warnings.simplefilter('ignore'); return 1\n", id="warning-policy-writer"),
+        pytest.param("import sys\ndef runtime_value(case):\n    change = sys.path.append\n    change('fixture')\n    return 1\n", id="captured-global-mutator"),
+        pytest.param("import builtins\ndef runtime_value(case): builtins.dict = case; return 1\n", id="builtin-module-write"),
+    ],
+)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_effect_aliases_and_process_state_keep_their_source_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child: str, snapshot: bool,
+) -> None:
+    _assert_new_effect_capability_retained(tmp_path, monkeypatch, child, False, snapshot)
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        pytest.param("import pickle\ndef runtime_value(case): return pickle.loads(case)\n", id="executable-data"),
+        pytest.param("def runtime_value(case): case._outcome.result.addSkip(case, 'unavailable'); return 1\n", id="result-writer"),
+        pytest.param("import os\ndef runtime_value(case): os.environ['UAA_PROBE'] = '1'; return 1\n", id="shared-state-writer"),
+    ],
+)
+@pytest.mark.parametrize("changed", [False, True], ids=["unchanged", "changed-existing-root"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_existing_effect_capabilities_retain_revision_owned_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    subject: str, changed: bool, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch, _capability_review_consumer_source(False),
+        base_subject="def runtime_value(case): return 1\n" if changed else subject,
+        current_subject=subject, additions={},
+    )
+    if changed:
+        _assert_capability_review_retirement(tmp_path, snapshot, False)
+    else:
+        inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+        assert guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory) == ()
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        pytest.param("import os\nfrom builtins import dict as clone\ndef runtime_value(case): return clone(os.environ)\n", id="stable-copy-import"),
+        pytest.param("import os\ndef runtime_value(case): return os.getcwd()\n", id="cwd-reader"),
+        pytest.param("import sys\ndef runtime_value(case): return sys.version_info.major\n", id="sys-reader"),
+        pytest.param("import sys\ndef local(sys): sys.path.clear()\ndef runtime_value(case): return 1\n", id="shadowed-state-owner"),
+        pytest.param("from yaml.loader import SafeLoader\ndef runtime_value(case): return SafeLoader(case).get_data()\n", id="safe-loader-submodule"),
+    ],
+)
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_process_state_repair_preserves_proven_readers_and_copy_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child: str, snapshot: bool,
+) -> None:
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value(None) == 1\n",
+        base_subject="def runtime_value(case): return 1\n", additions={CHILD_PATH: child},
+    )
+    _assert_harmless_runtime_subject_admitted(child, False)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(tmp_path, BASE_SHA, worktree_snapshot=inventory) == ()
     _assert_harmless_runtime_subject_admitted(child, False)
 
 
