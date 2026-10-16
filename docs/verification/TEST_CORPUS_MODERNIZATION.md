@@ -91,8 +91,9 @@ Shared environment writes, mutator captures and unproved mapping escapes refuse
 new-source normalization: one test can otherwise change whether another runs.
 Closed reads and fresh flat environment copies remain admissible. Lexical aliases
 retain the shared mapping owner, while local/formal shadowing does not invent it.
-Imported copy helpers require one source-owned producer; a retained import fact
-cannot certify a rebound callable as read-only. Explicit loader submodules share
+Imported copy helpers require one source-owned producer, including writes through
+enclosing `nonlocal` bindings; a retained import fact cannot certify a rebound
+callable as read-only. Explicit loader submodules share
 the executable-data boundary. Known process-wide directory, tracing, warning and
 import-state capabilities, and writes or mutator captures through imported
 objects, retain the same conservative posture. Live nested state is not made

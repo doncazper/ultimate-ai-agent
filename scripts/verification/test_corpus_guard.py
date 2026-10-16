@@ -3016,17 +3016,22 @@ def _python_capability_projection(
     for alias, target in import_alias_names:
         alias.asname = target
     # An imported copy helper is a positive proof only while its binding has
-    # exactly one producer. Merely retaining a possible builtins import cannot
-    # justify a later call after assignment, function redefinition or rebinding.
-    stable_builtin_imports = set()
+    # exactly one producer at its actual lexical owner. A nested nonlocal write
+    # changes the enclosing binding, not a separate local copy of that name.
+    binding_producers: dict[tuple[int, str], dict[int, ast.AST]] = {}
     for owner, scope in scopes.items():
         for name, events in scope["bindings"].items():
-            unique = {id(event): event for event in events}
-            if len(unique) != 1:
-                continue
-            event = next(iter(unique.values()))
-            if isinstance(event, ast.ImportFrom) and event.module == "builtins" and not event.level:
-                stable_builtin_imports.add(symbol(owner, name))
+            for event in events:
+                producer_owner = binding_owner(owner, name, event, store=True)
+                if producer_owner is not None:
+                    binding_producers.setdefault((producer_owner, name), {})[id(event)] = event
+    stable_builtin_imports = set()
+    for (owner, name), unique in binding_producers.items():
+        if len(unique) != 1:
+            continue
+        event = next(iter(unique.values()))
+        if isinstance(event, ast.ImportFrom) and event.module == "builtins" and not event.level:
+            stable_builtin_imports.add(symbol(owner, name))
     setattr(projected[root], "_uaa_stable_builtin_imports", frozenset(stable_builtin_imports))
     result = projected, projected_imports
     cache[cache_key] = result

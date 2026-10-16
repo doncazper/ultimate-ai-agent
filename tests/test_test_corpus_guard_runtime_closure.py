@@ -4406,6 +4406,64 @@ def test_process_state_repair_preserves_proven_readers_and_copy_bindings(
     _assert_harmless_runtime_subject_admitted(child, False)
 
 
+@pytest.mark.parametrize("replacement", ["assignment", "definition"])
+@pytest.mark.parametrize("depth", [1, 2], ids=["enclosing", "outer-enclosing"])
+@pytest.mark.parametrize("nested", [False, True], ids=["child", "grandchild"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_nonlocal_copy_rebinding_retains_actual_producer_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    replacement: str, depth: int, nested: bool, snapshot: bool,
+) -> None:
+    replacement_body = (
+        "clone = writer\n" if replacement == "assignment"
+        else "def clone(value): value['UAA_PROBE'] = '1'\n"
+    )
+    rebinder = "nonlocal clone\n" + replacement_body
+    if depth == 2:
+        rebinder = "def inner():\n" + "".join(
+            "    " + line for line in rebinder.splitlines(keepends=True)
+        ) + "inner()\n"
+    child = (
+        "import os\ndef runtime_value(case):\n"
+        "    from builtins import dict as clone\n"
+        "    def writer(value): value['UAA_PROBE'] = '1'\n"
+        "    def replace():\n"
+        + "".join("        " + line for line in rebinder.splitlines(keepends=True))
+        + "    replace()\n    clone(os.environ)\n    return 1\n"
+    )
+    _assert_new_effect_capability_retained(
+        tmp_path, monkeypatch, child, nested, snapshot
+    )
+
+
+@pytest.mark.parametrize("body", [
+    "nonlocal clone\n        return clone",
+    "def clone(value): value['UAA_PROBE'] = 'local'\n        return clone",
+], ids=["nonlocal-read", "independent-shadow"])
+@pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
+def test_copy_producer_proof_preserves_nonwriting_enclosing_scopes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str, snapshot: bool,
+) -> None:
+    child = (
+        "import os\ndef runtime_value(case):\n"
+        "    from builtins import dict as clone\n"
+        "    def inspect_copy():\n        " + body + "\n"
+        "    inspect_copy()\n    clone(os.environ)\n    return 1\n"
+    )
+    _install_subject(
+        tmp_path, monkeypatch,
+        "from ultimate_ai_agent.subject import runtime_value\n"
+        "def test_case(): assert runtime_value(None) == 1\n",
+        base_subject="def runtime_value(case): return 1\n",
+        additions={CHILD_PATH: child},
+    )
+    _assert_harmless_runtime_subject_admitted(child, False)
+    inventory = guard._inventory_worktree_snapshot(tmp_path) if snapshot else None
+    assert guard.removed_declarations(
+        tmp_path, BASE_SHA, worktree_snapshot=inventory
+    ) == ()
+
+
 @pytest.mark.parametrize("snapshot", [False, True], ids=["scoped", "snapshot"])
 def test_ordinary_operator_member_alias_retains_actual_admission(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, snapshot: bool
