@@ -1560,10 +1560,6 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
                     imported_fixture_names.add(local_name)
     protected_names = imported_pytest_roots | imported_fixture_names
     for node in _module_execution_nodes(tree):
-        aliases_before = _module_name_aliases(
-            tree,
-            before=(getattr(node, "lineno", 0), getattr(node, "col_offset", 0)),
-        )
         if isinstance(node, ast.Assign):
             targets = node.targets
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
@@ -1580,24 +1576,32 @@ def _fixture_aliases(tree: ast.Module) -> set[str]:
             )
         else:
             targets = ()
-        if any(
-            isinstance(target, ast.Attribute)
-            and target.attr == "fixture"
-            and _resolved_expression_root(target.value, aliases_before) in pytest_roots
+        fixture_targets = tuple(
+            target
             for target in targets
-        ):
-            raise TestCorpusGuardError(
-                "dynamic pytest fixture alias cannot be inventoried safely"
-            )
+            if isinstance(target, ast.Attribute) and target.attr == "fixture"
+        )
         mutation = _mutated_attribute_call(node)
-        if (
-            mutation is not None
-            and _resolved_expression_root(mutation[0], aliases_before) in pytest_roots
-            and mutation[1] in {None, "fixture"}
-        ):
-            raise TestCorpusGuardError(
-                "dynamic pytest fixture alias cannot be inventoried safely"
+        fixture_mutation = mutation is not None and mutation[1] in {None, "fixture"}
+        # Only these existing mutation checks consume position-bound aliases.
+        # Ordinary AST nodes still undergo the protected-name checks below.
+        if fixture_targets or fixture_mutation:
+            aliases_before = _module_name_aliases(
+                tree,
+                before=(getattr(node, "lineno", 0), getattr(node, "col_offset", 0)),
             )
+            if any(
+                _resolved_expression_root(target.value, aliases_before) in pytest_roots
+                for target in fixture_targets
+            ) or (
+                fixture_mutation
+                and mutation is not None
+                and _resolved_expression_root(mutation[0], aliases_before)
+                in pytest_roots
+            ):
+                raise TestCorpusGuardError(
+                    "dynamic pytest fixture alias cannot be inventoried safely"
+                )
         rebound = {name for target in targets for name in _binding_target_names(target)}
         if isinstance(node, ast.ExceptHandler) and node.name is not None:
             rebound.add(node.name)
